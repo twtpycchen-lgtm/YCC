@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Album, Track } from '../types';
 import { getAlbumInsights, cleanTrackTitles } from '../services/geminiService';
@@ -10,7 +9,6 @@ interface UploadModalProps {
 }
 
 const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdit }) => {
-  const [activeTab, setActiveTab] = useState<'cloud' | 'assets'>('cloud');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [story, setStory] = useState('');
@@ -30,15 +28,58 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
     }
   }, [albumToEdit]);
 
+  /**
+   * 標題淨化邏輯 (純淨模式)：
+   * 輸入：3_V1_摩天輪的告白_原始GK版_V1.mp3
+   * 輸出：摩天輪的告白
+   */
+  const getExtremeCleanName = (url: string) => {
+    try {
+      const decodedUrl = decodeURIComponent(url);
+      const filename = decodedUrl.split('/').pop()?.split('?')[0] || "未命名";
+      let name = filename.replace(/\.[^/.]+$/, ""); 
+
+      // 1. 移除方括號與圓括號內容
+      name = name.replace(/\[.*?\]/g, '');
+      name = name.replace(/\(.*?\)/g, '');
+
+      // 2. 移除開頭的序號模式 (如 "3_", "01 - ", "1.")
+      name = name.replace(/^[0-9]+[_\s.-]+/, '');
+
+      // 3. 移除常見的版本標籤 (V1, V2, v3.2 等)
+      name = name.replace(/[vV]\d+([-._]\d+)*/g, '');
+
+      // 4. 移除常見的 Metadata 後綴
+      const metaPatterns = [
+        "原始GK版", "GK版", "原始", "正式版", "修復版", "版", 
+        "Remix", "Final", "Mix", "Master", "Demo", "Full", "Cut", 
+        "Suno", "Grok", "Udio"
+      ];
+      const metaRegex = new RegExp(`[\\s_\\-]*(${metaPatterns.join('|')})[\\s_\\-]*`, 'gi');
+      name = name.replace(metaRegex, ' ');
+
+      // 5. 轉換分隔符並壓縮空格
+      name = name.replace(/[_\-]+/g, ' ');
+      name = name.replace(/\s+/g, ' ').trim();
+      
+      return name || "未命名音軌";
+    } catch (e) {
+      return "音軌解析失敗";
+    }
+  };
+
   const handleGenerateStory = async () => {
     if (!title || !description) {
-      alert("請輸入資訊。");
+      alert("請先輸入標題與描述，AI 才能根據主題編撰故事。");
       return;
     }
     setIsGeneratingStory(true);
     try {
       const result = await getAlbumInsights(title, description);
       setStory(result);
+    } catch (err) {
+      console.error(err);
+      alert("AI 生成故事失敗。");
     } finally {
       setIsGeneratingStory(false);
     }
@@ -50,7 +91,10 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
     try {
       const trackData = tracks.map(t => ({ id: t.id || '', title: t.title || '' }));
       const optimizedTitles = await cleanTrackTitles(trackData, title);
+      // 確保 Gemini 回傳後不再被強制加上角括號
       setTracks(prev => prev.map((t, idx) => ({ ...t, title: optimizedTitles[idx] || t.title })));
+    } catch (err) {
+      console.error(err);
     } finally {
       setIsCleaningTitles(false);
     }
@@ -58,12 +102,12 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
 
   const handleBatchImport = () => {
     const results: any[] = [];
-    // 嚴格按行分割，避免網址中間的符號導致錯誤切分
     const lines = batchLinks.split('\n').map(l => l.trim()).filter(l => l.length > 10);
     
     lines.forEach((link, idx) => {
       let finalAudioUrl = link;
       let genre = '雲端串流';
+      let originalTitle = getExtremeCleanName(link); 
 
       if (link.includes('dropbox.com')) {
         genre = 'Dropbox 💎';
@@ -86,11 +130,11 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
 
       results.push({
         id: `track-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 5)}`,
-        title: `音軌 ${tracks.length + results.length + 1}`,
+        title: originalTitle, 
         audioUrl: finalAudioUrl,
         duration: '--:--',
         genre: genre,
-        mp3Url: link, // 保留原始連結供參考
+        mp3Url: link,
         wavUrl: link
       });
     });
@@ -98,22 +142,21 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
     if (results.length > 0) {
       setTracks(prev => [...prev, ...results]);
       setBatchLinks('');
-    } else {
-      alert("未偵測到有效的連結。請確保每行一個連結。");
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !coverImage || tracks.length === 0) {
-      alert("請填寫專輯標題、封面並匯入至少一首歌曲。");
+      alert("請完成所有必要資訊（封面、標題、至少一首歌曲）。");
       return;
     }
+    
     onUpload({
       id: albumToEdit ? albumToEdit.id : `album-${Date.now()}`,
       title,
       description,
-      story,
+      story, 
       coverImage,
       releaseDate: albumToEdit ? albumToEdit.releaseDate : new Date().toLocaleDateString('zh-TW'),
       tracks: tracks as Track[]
@@ -126,11 +169,10 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
         <div className="flex justify-between items-start mb-10">
           <div className="space-y-4">
             <h2 className="text-4xl font-luxury tracking-widest uppercase text-white">
-              {albumToEdit ? '典藏修復' : '公開新作'}
+              {albumToEdit ? '典藏修復' : '爵非策展'}
             </h2>
             <div className="flex gap-3">
-              <button type="button" onClick={() => setActiveTab('cloud')} className={`px-5 py-2 rounded-full text-[10px] uppercase tracking-widest border transition-all ${activeTab === 'cloud' ? 'bg-white text-black border-white' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>雲端硬碟匯入</button>
-              <button type="button" onClick={() => setActiveTab('assets')} className={`px-5 py-2 rounded-full text-[10px] uppercase tracking-widest border transition-all ${activeTab === 'assets' ? 'bg-white text-black border-white' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>手動設定</button>
+              <span className="px-5 py-2 rounded-full text-[10px] uppercase tracking-widest bg-white text-black font-black">極簡標題模式</span>
             </div>
           </div>
           <button onClick={onClose} className="p-2 text-gray-500 hover:text-white transition-colors">
@@ -141,38 +183,88 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           <div className="space-y-6">
             <div className="aspect-square bg-white/5 border border-white/10 rounded-3xl overflow-hidden relative group cursor-pointer shadow-inner">
-              {coverImage ? <img src={coverImage} className="w-full h-full object-cover" /> : <div className="absolute inset-0 flex items-center justify-center text-[10px] text-gray-600 uppercase tracking-[0.3em]">點擊上傳封面藝術</div>}
-              <input type="file" accept="image/*" onChange={(e) => e.target.files && setCoverImage(URL.createObjectURL(e.target.files[0]))} className="absolute inset-0 opacity-0 cursor-pointer" />
+              {coverImage ? <img src={coverImage} className="w-full h-full object-cover" /> : <div className="absolute inset-0 flex items-center justify-center text-[10px] text-gray-600 uppercase tracking-[0.3em] text-center px-10">上傳藝術封面</div>}
+              <input type="file" accept="image/*" onChange={(e) => {
+                if(e.target.files && e.target.files[0]) {
+                  const reader = new FileReader();
+                  reader.onload = (event) => setCoverImage(event.target?.result as string);
+                  reader.readAsDataURL(e.target.files[0]);
+                }
+              }} className="absolute inset-0 opacity-0 cursor-pointer" />
             </div>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="專輯標題" className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-white font-luxury focus:outline-none" />
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="描述靈魂..." className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-white h-24 focus:outline-none resize-none" />
+            
+            <input 
+              type="text" 
+              value={title} 
+              onChange={(e) => setTitle(e.target.value)} 
+              placeholder="典藏專輯標題" 
+              className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-white font-luxury focus:outline-none focus:border-[#d4af37]/40 transition-all" 
+            />
+            
+            <div className="space-y-4">
+              <textarea 
+                value={description} 
+                onChange={(e) => setDescription(e.target.value)} 
+                placeholder="描述此段鼓點的靈魂主題..." 
+                className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-white h-24 focus:outline-none focus:border-[#d4af37]/40 resize-none transition-all" 
+              />
+              
+              <div className="relative group">
+                <textarea 
+                  value={story} 
+                  onChange={(e) => setStory(e.target.value)} 
+                  placeholder="AI Session Story 將根據主題自動編撰..." 
+                  className="w-full bg-[#d4af37]/5 border border-[#d4af37]/20 rounded-2xl p-6 text-[#d4af37]/90 text-sm italic leading-relaxed h-36 focus:outline-none focus:border-[#d4af37]/40 resize-none transition-all" 
+                />
+                <button 
+                  type="button" 
+                  onClick={handleGenerateStory} 
+                  disabled={isGeneratingStory} 
+                  className="absolute bottom-4 right-4 px-6 py-2 bg-[#d4af37] text-black text-[9px] uppercase tracking-[0.2em] rounded-full font-black hover:scale-105 transition-all shadow-xl disabled:opacity-50"
+                >
+                  {isGeneratingStory ? 'AI 撰寫中...' : '✨ 生成故事'}
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-6">
             <div className="glass p-8 rounded-[2rem] border border-white/5">
               <div className="flex justify-between items-center mb-6">
-                <h4 className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">匯入音軌</h4>
-                {tracks.length > 0 && <button type="button" onClick={handleCleanTitles} className="text-[9px] uppercase tracking-widest text-blue-400">{isCleaningTitles ? 'AI 命名中...' : '✨ AI 潤飾歌名'}</button>}
+                <h4 className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">批次導入連結</h4>
+                {tracks.length > 0 && (
+                  <button 
+                    type="button" 
+                    onClick={handleCleanTitles} 
+                    className={`text-[9px] uppercase tracking-widest font-black border px-4 py-1.5 rounded-full transition-all ${isCleaningTitles ? 'bg-white text-black' : 'text-[#d4af37] border-[#d4af37]/20 hover:bg-[#d4af37]/10'}`}
+                  >
+                    {isCleaningTitles ? '核心提取中...' : '✨ 標題再進化'}
+                  </button>
+                )}
               </div>
 
-              {activeTab === 'cloud' ? (
-                <div className="space-y-3">
-                  <textarea value={batchLinks} onChange={(e) => setBatchLinks(e.target.value)} placeholder="請輸入 Dropbox 或 Google Drive 連結，每行一個..." className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-xs font-mono text-gray-400 h-32 focus:outline-none focus:border-white/30" />
-                  <button type="button" onClick={handleBatchImport} className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[10px] uppercase tracking-widest transition-all border border-white/10 font-bold">同步連結</button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                   <p className="text-[10px] text-gray-500 uppercase">請先切換至「雲端硬碟匯入」模式進行批次操作。</p>
-                </div>
-              )}
+              <div className="space-y-3">
+                <textarea 
+                  value={batchLinks} 
+                  onChange={(e) => setBatchLinks(e.target.value)} 
+                  placeholder="每行一個連結。檔名將自動去噪並轉換為純標題..." 
+                  className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-xs font-mono text-gray-400 h-32 focus:outline-none focus:border-[#d4af37]/20 transition-all" 
+                />
+                <button 
+                  type="button" 
+                  onClick={handleBatchImport} 
+                  className="w-full py-4 bg-[#d4af37] hover:bg-[#b8952d] text-black rounded-xl text-[10px] uppercase tracking-widest transition-all font-black shadow-lg"
+                >
+                  導入並自動優化標題
+                </button>
+              </div>
 
-              <div className="mt-6 max-h-[120px] overflow-y-auto space-y-2 pr-2 scrollbar-custom">
+              <div className="mt-8 max-h-[220px] overflow-y-auto space-y-2 pr-2 scrollbar-custom">
                 {tracks.map((track, idx) => (
-                  <div key={track.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5 group">
+                  <div key={track.id} className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-all group">
                     <span className="text-[10px] text-gray-600 font-mono w-4">{idx + 1}</span>
                     <div className="flex-grow min-w-0">
-                      <p className="text-[10px] text-white truncate font-bold">{track.title}</p>
-                      <p className="text-[8px] text-gray-500 truncate font-mono">{track.mp3Url?.substring(0, 50)}...</p>
+                      <p className="text-[11px] text-white truncate font-bold tracking-wider">{track.title}</p>
                     </div>
                     <button type="button" onClick={() => setTracks(prev => prev.filter(t => t.id !== track.id))} className="text-gray-600 hover:text-red-500 transition-colors">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -182,15 +274,12 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
               </div>
             </div>
 
-            <div className="glass p-8 rounded-[2rem] border border-white/5">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">AI 故事導讀</span>
-                <button type="button" onClick={handleGenerateStory} disabled={isGeneratingStory} className="text-[9px] uppercase tracking-widest text-purple-400">{isGeneratingStory ? '撰寫中...' : '重新生成'}</button>
-              </div>
-              <textarea value={story} onChange={(e) => setStory(e.target.value)} placeholder="AI 將根據標題生成這張專輯的靈魂故事..." className="w-full bg-transparent border-none p-0 text-gray-300 text-sm italic focus:outline-none h-20 resize-none leading-relaxed" />
-            </div>
-
-            <button type="submit" className="w-full py-6 bg-white text-black font-luxury uppercase tracking-[0.3em] rounded-2xl font-bold text-xs hover:bg-gray-200 transition-all shadow-2xl">正式發佈專輯</button>
+            <button 
+              type="submit" 
+              className="w-full py-6 bg-white text-black font-luxury uppercase tracking-[0.4em] rounded-2xl font-bold text-xs hover:bg-[#d4af37] transition-all shadow-2xl active:scale-95"
+            >
+              正式發佈典藏
+            </button>
           </div>
         </form>
       </div>

@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface NavbarProps {
@@ -8,63 +7,75 @@ interface NavbarProps {
   onImport: () => void;
   isCuratorMode: boolean;
   toggleCuratorMode: () => void;
+  isJazzMode: boolean;
+  onJazzToggle: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ onHome, onUpload, onExport, onImport, isCuratorMode, toggleCuratorMode }) => {
+const Navbar: React.FC<NavbarProps> = ({ 
+  onHome, 
+  onUpload, 
+  onExport, 
+  onImport, 
+  isCuratorMode, 
+  toggleCuratorMode,
+  isJazzMode,
+  onJazzToggle
+}) => {
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 glass px-6 py-4">
-      <div className="container mx-auto flex justify-between items-center">
+    <nav className="fixed top-0 left-0 right-0 z-50 px-8 py-8">
+      <div className={`container mx-auto flex justify-between items-center glass px-10 py-5 rounded-[2.5rem] border transition-all duration-[1000ms] ${isJazzMode ? 'border-indigo-500/20 shadow-[0_0_40px_rgba(79,70,229,0.08)]' : 'border-white/[0.05] shadow-[0_0_40px_rgba(212,175,55,0.03)]'}`}>
         <div 
           onClick={onHome}
-          className="flex items-center gap-3 cursor-pointer group"
+          className="flex items-center gap-6 cursor-pointer group"
         >
-          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(255,255,255,0.3)]">
-            <div className="w-6 h-6 bg-black rounded-full"></div>
+          <div className={`relative w-11 h-11 rounded-full flex items-center justify-center group-hover:rotate-180 transition-all duration-1000 shadow-xl ${isJazzMode ? 'bg-indigo-500' : 'bg-[#d4af37]'}`}>
+            <div className="w-7 h-7 bg-black rounded-full flex items-center justify-center">
+              <div className={`w-[2px] h-3 rounded-full animate-pulse ${isJazzMode ? 'bg-indigo-300' : 'bg-[#d4af37]'}`}></div>
+            </div>
           </div>
-          <span className="font-luxury text-xl tracking-widest uppercase">Suno Curator</span>
+          <span className={`font-luxury text-2xl tracking-[0.3em] uppercase transition-colors duration-[1000ms] ${isJazzMode ? 'text-indigo-100 text-glow' : 'text-white text-glow'}`}>爵非鼓狂</span>
         </div>
         
-        <div className="hidden md:flex items-center gap-6 lg:gap-8">
-          <button onClick={onHome} className="uppercase text-[10px] tracking-[0.2em] text-gray-400 hover:text-white transition-colors">Archive</button>
+        <div className="hidden lg:flex items-center gap-12">
+          <button onClick={onHome} className="uppercase text-[9px] tracking-[0.5em] text-gray-500 hover:text-white transition-all font-bold">Archives</button>
           
           {isCuratorMode && (
-            <div className="flex items-center gap-2 animate-fade-in">
-              <button onClick={onUpload} className="uppercase text-[10px] tracking-[0.2em] text-white bg-blue-600/40 px-4 py-2 rounded-full border border-blue-500/30 hover:bg-blue-600/60 transition-all font-bold">
-                Publish
-              </button>
-              <button onClick={onExport} className="uppercase text-[10px] tracking-[0.2em] text-emerald-400 bg-emerald-400/10 px-4 py-2 rounded-full border border-emerald-500/30 hover:bg-emerald-400/20 transition-all font-bold">
-                Export
-              </button>
-              <button onClick={onImport} className="uppercase text-[10px] tracking-[0.2em] text-purple-400 bg-purple-400/10 px-4 py-2 rounded-full border border-purple-500/30 hover:bg-purple-400/20 transition-all font-bold">
-                Import
-              </button>
+            <div className="flex items-center gap-6 animate-fade-in pl-12 border-l border-white/5">
+              <button onClick={onUpload} className="uppercase text-[9px] tracking-[0.4em] text-white hover:text-amber-400 transition-colors font-bold">Publish</button>
+              <button onClick={onExport} className="uppercase text-[9px] tracking-[0.4em] text-white hover:text-blue-400 transition-colors font-bold">Export</button>
+              <button onClick={onImport} className="uppercase text-[9px] tracking-[0.4em] text-white hover:text-purple-400 transition-colors font-bold">Import</button>
             </div>
           )}
 
-          <div className="flex items-center gap-4 border-l border-white/10 pl-6">
+          <div className="flex items-center gap-6 pl-12 border-l border-white/5">
              <button 
               onClick={toggleCuratorMode}
-              className={`w-12 h-6 rounded-full p-1 transition-colors duration-500 relative ${isCuratorMode ? 'bg-blue-600' : 'bg-white/10'}`}
+              className={`w-12 h-6 rounded-full p-1 transition-all duration-700 relative ${isCuratorMode ? (isJazzMode ? 'bg-indigo-500' : 'bg-[#d4af37]') : 'bg-white/5 border border-white/10'}`}
              >
-                <div className={`w-4 h-4 rounded-full bg-white transition-transform duration-500 ${isCuratorMode ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                <div className={`w-4 h-4 rounded-full transition-all duration-700 ${isCuratorMode ? 'translate-x-6 bg-black' : 'translate-x-0 bg-white/20'}`}></div>
              </button>
-             <span className="text-[9px] uppercase tracking-widest text-gray-500 font-bold hidden lg:inline">
-               {isCuratorMode ? 'Curator' : 'Listener'}
+             <span className="text-[8px] uppercase tracking-[0.4em] text-gray-500 font-black">
+               {isCuratorMode ? 'Curator' : 'Visitor'}
              </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-           <a 
-            href="https://vercel.com/docs/deployment-utils/environment-variables" 
-            target="_blank" 
-            rel="noreferrer"
-            className="hidden lg:block text-[9px] text-gray-600 hover:text-white uppercase tracking-tighter transition-colors"
+        <div className="flex items-center">
+           <button 
+            onClick={onJazzToggle}
+            className={`px-10 py-3.5 rounded-full text-[9px] uppercase tracking-[0.5em] font-black transition-all relative overflow-hidden group/jazz ${
+              isJazzMode 
+              ? 'bg-indigo-600 text-white shadow-[0_0_30px_rgba(79,70,229,0.4)]' 
+              : 'bg-white text-black hover:bg-[#d4af37] hover:text-white shadow-xl'
+            }`}
            >
-             Deploy Guide
-           </a>
-           <button className="px-5 py-2 glass rounded-full text-xs uppercase tracking-widest hover:bg-white/10 transition-all border border-white/5">
-            Community
+            <span className="relative z-10 flex items-center gap-3">
+              {isJazzMode && <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>}
+              沈浸 {isJazzMode ? 'ON' : 'OFF'}
+            </span>
+            {isJazzMode && (
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-600 to-indigo-500 opacity-30 animate-pulse"></div>
+            )}
           </button>
         </div>
       </div>

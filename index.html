@@ -3,30 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Suno Curator | AI 音樂藝術典藏</title>
+    <title>爵非鼓狂 | Jazz Fei Drum Madness</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@200;300;400;600&display=swap" rel="stylesheet">
     <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     <style>
+        :root {
+            /* 高級感底色：深石板藍灰色，非純黑 */
+            --bg-color: #0d0d0f; 
+            --accent-gold: #d4af37;
+        }
+        
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #050505;
+            background-color: var(--bg-color);
             color: #ffffff;
             margin: 0;
             overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
         }
-        h1, h2, h3, .font-luxury { font-family: 'Cinzel', serif; }
+
+        h1, h2, h3, .font-luxury { 
+            font-family: 'Cinzel', serif; 
+            letter-spacing: 0.15em;
+        }
+
+        /* 藝術膠片紋理 - 稍微增強以提升實體感 */
+        .noise-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.04;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        /* 高級感流體背景：混合深藍、古銅與深灰 */
+        .mesh-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 10% 20%, rgba(30, 41, 59, 0.4) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(212, 175, 55, 0.03) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 1) 0%, #0d0d0f 100%);
+            animation: mesh-move 30s ease-in-out infinite alternate;
+        }
+
+        @keyframes mesh-move {
+            0% { transform: scale(1) translate(0, 0); }
+            100% { transform: scale(1.05) translate(1%, 1%); }
+        }
+
         .glass {
             background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(30px) saturate(150%);
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
-        .text-glow { text-shadow: 0 0 10px rgba(255, 255, 255, 0.5); }
-        .scrollbar-custom::-webkit-scrollbar { width: 4px; }
-        .scrollbar-custom::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,0.1);
+
+        .text-glow { 
+            text-shadow: 0 0 30px rgba(212, 175, 55, 0.2); 
+        }
+
+        .outline-text {
+            -webkit-text-stroke: 1px rgba(255,255,255,0.1);
+            color: transparent;
+        }
+
+        /* 自定義捲動條 */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(212, 175, 55, 0.1);
             border-radius: 10px;
         }
     </style>
@@ -44,6 +94,8 @@
 </script>
 </head>
 <body>
+    <div class="noise-overlay"></div>
+    <div class="mesh-bg"></div>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
 </body>
