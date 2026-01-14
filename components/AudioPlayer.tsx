@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { PlayerState } from '../types';
 
@@ -37,8 +36,12 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
   useEffect(() => {
     if (!audioRef.current || !state.currentTrack) return;
     
-    // 手動設定屬性以避開 TS2322 類型錯誤
-    (audioRef.current as any).referrerPolicy = "no-referrer";
+    // 關鍵修正：透過 ref 手動設定屬性，避開 JSX 類型檢查
+    try {
+      (audioRef.current as any).referrerPolicy = "no-referrer";
+    } catch (e) {
+      console.error("Failed to set referrerPolicy", e);
+    }
     
     setError(null);
     setIsBuffering(true);
