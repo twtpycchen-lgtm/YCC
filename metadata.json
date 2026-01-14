@@ -1,0 +1,7 @@
+{
+  "name": "Suno Curated Visualizer",
+  "description": "A luxury, high-end platform for showcasing AI-generated music albums with immersive visual storytelling and advanced audio playback.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
