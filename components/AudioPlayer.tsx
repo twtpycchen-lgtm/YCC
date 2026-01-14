@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { PlayerState } from '../types';
 
@@ -38,8 +37,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
     const audio = audioRef.current;
     if (!audio || !state.currentTrack) return;
     
-    // 透過 setAttribute 設定，這在 TS 類型檢查中是安全的（隱形的）
-    // 這是穿透 Google Drive 串流限制的關鍵
+    // 關鍵修正：透過底層 API 設定，避開 React 類型檢查
+    // 這能確保 Google Drive 認可請求來源
     audio.setAttribute('referrerpolicy', 'no-referrer');
     
     setError(null);
@@ -117,7 +116,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
 
   return (
     <div className="fixed bottom-6 left-6 right-6 z-[60] glass rounded-3xl p-4 md:p-6 shadow-2xl border border-white/5 animate-fade-in-up">
-      {/* 這裡絕對不能包含 referrerPolicy 屬性 */}
       <audio 
         ref={audioRef} 
         onTimeUpdate={handleTimeUpdate}
