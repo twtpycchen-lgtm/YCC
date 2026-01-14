@@ -1,9 +1,27 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
+/**
+ * 取得經過安全檢查的 AI 實例
+ * 防止因為環境變數未設定導致整個前端 App 在啟動時崩潰
+ */
+const getSafeAI = () => {
+  try {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey || apiKey === "undefined" || apiKey === "") {
+      console.warn("Gemini API Key is missing. AI features will be disabled.");
+      return null;
+    }
+    return new GoogleGenAI({ apiKey });
+  } catch (err) {
+    console.error("AI Initialization error:", err);
+    return null;
+  }
+};
+
 export const getAlbumInsights = async (albumTitle: string, description: string) => {
   try {
-    // 初始化放在函式內，避免全域變數載入失敗導致整個 App 黑屏
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = getSafeAI();
+    if (!ai) return "（系統訊息：請在 Vercel 後台設定 API_KEY 以啟用此功能。）";
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -12,20 +30,21 @@ export const getAlbumInsights = async (albumTitle: string, description: string) 
       
       要求：
       1. 必須使用「繁體中文」。
-      2. 語氣必須高端、具備藝術感且深邃，像是一位資深音樂評論家的筆觸。
+      2. 語氣必須高端、具備藝術感且深邃。
       3. 字數約 120 字左右，分段優雅。`,
     });
     
-    return response.text || "";
+    return response.text || "（無法生成內容）";
   } catch (error) {
     console.error("Gemini Insight Error:", error);
-    return "（敘事生成暫時無法使用，請確認 Vercel 的 API_KEY 設定是否正確。）";
+    return "（AI 暫時無法連線，請稍後再試。）";
   }
 };
 
 export const cleanTrackTitles = async (rawTitles: string[], albumTitle: string, albumDescription: string) => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = getSafeAI();
+    if (!ai) return rawTitles;
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -37,11 +56,9 @@ export const cleanTrackTitles = async (rawTitles: string[], albumTitle: string, 
       任務指令：
       1. 將這些曲目轉換為極具藝術價值的正式中文曲名。
       2. 必須使用「繁體中文」。
-      3. **關鍵：如果原始標題是檔案 ID（如 18E0k7wp...）或亂碼，請無視原始字串，完全根據上述的「專輯標題」與「專輯概念」，創作者充滿意象與詩意的全新曲名。**
-      4. 所有的曲名風格必須統一，像是構成一個完整的音樂故事。
-      5. 清除所有副檔名與多餘符號。
+      3. 清除所有副檔名與多餘符號。
       
-      請僅回傳一個純 JSON 字串陣列：["曲名一", "曲名二", ...]。不要包含 markdown 格式或任何解釋。`,
+      請僅回傳一個純 JSON 字串陣列：["曲名一", "曲名二", ...]。`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -57,8 +74,7 @@ export const cleanTrackTitles = async (rawTitles: string[], albumTitle: string, 
     if (!jsonStr) return rawTitles;
     
     const parsed = JSON.parse(jsonStr);
-    if (Array.isArray(parsed)) return parsed;
-    return rawTitles;
+    return Array.isArray(parsed) ? parsed : rawTitles;
   } catch (error) {
     console.error("Gemini Cleaning Error:", error);
     return rawTitles;
