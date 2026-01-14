@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Album, Track } from '../types';
 
 interface AlbumDetailViewProps {
@@ -23,6 +23,15 @@ const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   isPlaying,
   isCuratorMode
 }) => {
+  const [showCopyMsg, setShowCopyMsg] = useState(false);
+
+  const handleShare = () => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url);
+    setShowCopyMsg(true);
+    setTimeout(() => setShowCopyMsg(false), 2000);
+  };
+
   return (
     <div className="animate-fade-in-up">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
@@ -36,28 +45,35 @@ const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
           返回收藏庫
         </button>
 
-        {isCuratorMode && (
-          <div className="flex gap-4 animate-fade-in">
-            <button 
-              onClick={onEdit}
-              className="px-6 py-2.5 rounded-full border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-all uppercase text-[10px] tracking-widest font-bold flex items-center gap-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              編輯專輯
-            </button>
-            <button 
-              onClick={onDelete}
-              className="px-6 py-2.5 rounded-full border border-red-500/20 text-red-500/50 hover:text-red-500 hover:bg-red-500/10 transition-all uppercase text-[10px] tracking-widest font-bold flex items-center gap-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              移除典藏
-            </button>
-          </div>
-        )}
+        <div className="flex gap-4 items-center">
+          <button 
+            onClick={handleShare}
+            className="relative px-6 py-2.5 rounded-full glass border border-white/10 text-white hover:bg-white/10 transition-all uppercase text-[10px] tracking-widest font-bold flex items-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6a3 3 0 100-2.684m0 2.684l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+            </svg>
+            分享作品
+            {showCopyMsg && (
+              <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[9px] text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded animate-fade-in">
+                已複製專屬網址！
+              </span>
+            )}
+          </button>
+
+          {isCuratorMode && (
+            <div className="flex gap-4 animate-fade-in border-l border-white/10 pl-4">
+              <button onClick={onEdit} className="px-6 py-2.5 rounded-full border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-all uppercase text-[10px] tracking-widest font-bold flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                編輯
+              </button>
+              <button onClick={onDelete} className="px-6 py-2.5 rounded-full border border-red-500/20 text-red-500/50 hover:text-red-500 hover:bg-red-500/10 transition-all uppercase text-[10px] tracking-widest font-bold flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                刪除
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
@@ -89,11 +105,8 @@ const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
               <div className="py-10 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-3xl">
                 <p className="text-gray-500 text-sm italic mb-6 text-center px-6">這張專輯還沒有寫下它的故事...</p>
                 {isCuratorMode && (
-                   <button 
-                    onClick={onEdit}
-                    className="px-8 py-3 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 rounded-full text-[10px] uppercase tracking-widest border border-purple-500/20 transition-all flex items-center gap-2"
-                  >
-                    <span className="animate-pulse">✨</span> 使用 AI 生成靈感故事
+                   <button onClick={onEdit} className="px-8 py-3 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 rounded-full text-[10px] uppercase tracking-widest border border-purple-500/20 transition-all flex items-center gap-2">
+                    <span className="animate-pulse">✨</span> 潤飾故事
                   </button>
                 )}
               </div>
@@ -133,13 +146,9 @@ const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
                       <span className="text-xs text-gray-600 font-mono">{track.duration}</span>
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isActive && isPlaying ? 'bg-white text-black' : 'bg-white/5 text-white group-hover:bg-white group-hover:text-black'}`}>
                         {isActive && isPlaying ? (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                          </svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1-1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
                         ) : (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-0.5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                          </svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-0.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>
                         )}
                       </div>
                     </div>
