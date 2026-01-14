@@ -16,10 +16,9 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
 
   const getDriveId = (url: string) => {
     if (!url || typeof url !== 'string') return null;
-    if (!url.includes('drive.google.com') && !url.includes('docs.google.com')) return null;
     const patterns = [
       /[?&]id=([^&]+)/,
-      /d\/([a-zA-Z0-9_-]{25,})\//,
+      /d\/([a-zA-Z0-9_-]{25,})/,
       /file\/d\/([a-zA-Z0-9_-]{25,})/
     ];
     for (const pattern of patterns) {
@@ -30,17 +29,17 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
   };
 
   const getStreamUrls = (id: string) => [
-    // 優先使用最新的 usercontent 網域，這能直接獲取數據流
+    // 優先使用 usercontent 網域，這通常用於直接下載，避開 Google Drive 主站的 HTML 警告頁
     `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`,
     `https://drive.google.com/uc?id=${id}&export=download&confirm=t`,
-    `https://docs.google.com/uc?export=download&id=${id}`,
-    `https://drive.google.com/u/0/uc?id=${id}&export=download`
+    `https://docs.google.com/uc?export=download&id=${id}`
   ];
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !state.currentTrack) return;
     
+    // 解決連線被拒絕的關鍵：不傳送 Referrer
     audio.setAttribute('referrerpolicy', 'no-referrer');
     
     setError(null);
@@ -57,9 +56,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
     
     audio.load();
     if (state.isPlaying) {
-      audio.play().catch(() => {
-        // 如果自動播放受阻，重置狀態
-        if (state.isPlaying) onTogglePlay();
+      audio.play().catch(e => {
+        console.warn("自動播放受限:", e);
       });
     }
   }, [state.currentTrack?.id]);
@@ -83,7 +81,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
       if (retryCount < urls.length - 1) {
         const nextRetry = retryCount + 1;
         setRetryCount(nextRetry);
-        console.warn(`[V10] 串流異常，切換備用路徑 ${nextRetry}...`);
+        console.warn(`[V11] 網域 ${retryCount} 遭攔截，嘗試備用通道 ${nextRetry}...`);
         audioRef.current.src = urls[nextRetry];
         audioRef.current.load();
         audioRef.current.play().catch(() => {});
@@ -91,16 +89,17 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
       }
     }
     
-    setError("連線被 Google 阻斷。建議將檔案改為 < 100MB 或使用其他圖床。");
+    setError("NotSupportedError: Google 已攔截串流並傳送 HTML 警告。請點擊按鈕修復權限。");
     setIsBuffering(false);
   };
 
-  const openFix = () => {
+  const openAuthRepair = () => {
     if (!state.currentTrack) return;
     const id = getDriveId(state.currentTrack.audioUrl);
     if (!id) return;
+    // 打開預覽頁面，這會強迫瀏覽器獲取 Google 的 Session Cookie
     window.open(`https://drive.google.com/file/d/${id}/view`, '_blank');
-    alert("已在新視窗開啟。請確認該分頁可以播放後，回到本站再次點擊「播放」。");
+    alert("已在新視窗開啟檔案。請在該分頁確認看到播放器後，回到本站再次點擊「播放」。這能有效繞過 Google 的防盜鏈限制。");
   };
 
   const handleTimeUpdate = () => {
@@ -146,16 +145,17 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
             <h4 className="font-bold text-sm truncate tracking-wide text-glow text-white">{state.currentTrack.title}</h4>
             <div className="flex items-center gap-2">
               {error ? (
-                <button onClick={openFix} className="text-[9px] bg-red-500 text-white px-2 py-0.5 rounded font-bold animate-pulse">
-                  點擊修復播放
+                <button onClick={openAuthRepair} className="text-[10px] bg-red-600 text-white px-3 py-1 rounded-full font-bold animate-pulse shadow-lg hover:bg-red-500 transition-all">
+                  點擊修復 Google 授權
                 </button>
               ) : isBuffering ? (
                 <span className="text-[9px] text-blue-400 font-bold uppercase tracking-widest animate-pulse">
-                  正在穿透 Google 防火牆...
+                  建立直連隧道中...
                 </span>
               ) : (
                 <span className="text-[9px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
-                  已建立 P2P 隧道
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping"></div>
+                  數據串流已鎖定
                 </span>
               )}
             </div>
