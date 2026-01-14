@@ -1,28 +1,27 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 const getSafeAI = () => {
-  // 這裡的 process.env.API_KEY 會被 Vite 替換成 "AIza..."
+  // 這裡的 process.env.API_KEY 在編譯後會變成字串常量
   const apiKey = process.env.API_KEY;
   
-  console.log(`[V6] 診斷 - Key類型: ${typeof apiKey}, 長度: ${apiKey?.length || 0}`);
+  console.log(`[V7] Runtime Check - Key Length: ${apiKey?.length || 0}`);
 
   if (!apiKey || apiKey === "undefined" || apiKey === "" || apiKey.length < 10) {
-    console.error("[V6] 錯誤：API 金鑰未注入。");
-    console.log("[V6] 可能原因：1. Vercel 變數名稱不是 API_KEY。 2. Redeploy 時沒關閉 Cache。 3. 專案根目錄缺少必要的編譯設定。");
+    console.error("[V7] 錯誤：API 金鑰未能在運行時取得。");
     return null;
   }
   
   try {
     return new GoogleGenAI({ apiKey });
   } catch (err) {
-    console.error("[V6] AI 初始化失敗:", err);
+    console.error("[V7] AI 初始化異常:", err);
     return null;
   }
 };
 
 export const getAlbumInsights = async (albumTitle: string, description: string) => {
   const ai = getSafeAI();
-  if (!ai) return "（系統訊息：AI 功能目前停用。請確保 Vercel 的 Environment Variables 中有一個名為 API_KEY 的變數。）";
+  if (!ai) return "（系統訊息：AI 服務未啟動。請確認 Vercel 後台已設定名稱為 API_KEY 的環境變數並重新部署。）";
 
   try {
     const response = await ai.models.generateContent({
@@ -33,7 +32,7 @@ export const getAlbumInsights = async (albumTitle: string, description: string) 
     });
     return response.text || "（無法生成內容）";
   } catch (error) {
-    console.error("[V6] Gemini Error:", error);
+    console.error("[V7] Gemini Error:", error);
     return "（AI 暫時無法回應，請檢查 API Key 權限。）";
   }
 };
