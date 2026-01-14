@@ -3,16 +3,21 @@ import react from '@vitejs/plugin-react';
 import process from 'node:process';
 
 export default defineConfig(({ mode }) => {
-  // loadEnv 會讀取 .env 或 Vercel 注入的環境變數
+  // loadEnv(mode, path, prefixes) - 第三個參數設為 '' 才能讀取非 VITE_ 開頭的變數
   const env = loadEnv(mode, process.cwd(), '');
   
-  // 優先從 env 讀取，其次從 process.env
-  const apiKey = env.API_KEY || process.env.API_KEY || "";
+  // 按照優先權讀取：.env 檔案 > 系統環境變數 > VITE_ 前綴備案
+  const apiKey = env.API_KEY || process.env.API_KEY || env.VITE_API_KEY || "";
+
+  // 如果在 Build 期間沒抓到 Key，在 Vercel Build Logs 中會看到這個警告
+  if (!apiKey && mode === 'production') {
+    console.warn('WARNING: API_KEY is empty during build! Check Vercel Environment Variables.');
+  }
 
   return {
     plugins: [react()],
     define: {
-      // 這會在編譯時，將所有程式碼中的 process.env.API_KEY 替換成實際的金鑰
+      // 強制將代碼中的字串替換為實際金鑰
       'process.env.API_KEY': JSON.stringify(apiKey),
       'process.env.NODE_ENV': JSON.stringify(mode)
     },
@@ -21,7 +26,6 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: 'dist',
-      minify: 'esbuild',
       sourcemap: false
     }
   };
