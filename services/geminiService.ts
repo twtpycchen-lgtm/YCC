@@ -1,44 +1,40 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
-const getSafeAI = () => {
-  const apiKey = process.env.API_KEY;
-  
-  if (!apiKey || apiKey === "undefined" || apiKey === "" || apiKey.length < 10) {
-    console.error("[V8 Diagnostic] CRITICAL: API_KEY is missing. If you see this in Vercel, check Environment Variables.");
-    return null;
-  }
-  
-  try {
-    return new GoogleGenAI({ apiKey });
-  } catch (err) {
-    console.error("[V8 Diagnostic] Initialization Error:", err);
-    return null;
-  }
-};
-
+/**
+ * Generates poetic album insights using Gemini 3 Flash.
+ * Suitable for basic text generation and summarization.
+ */
 export const getAlbumInsights = async (albumTitle: string, description: string) => {
-  const ai = getSafeAI();
-  if (!ai) return "（系統訊息：AI 服務未啟動。請確認 Vercel 後台已設定 API_KEY。）";
+  // Always initialize with named parameter and process.env.API_KEY
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `請為專輯「${albumTitle}」提供一段詩意的中文介紹。主題：${description}`,
     });
+    // Access .text property directly
     return response.text || "（無法生成內容）";
   } catch (error) {
+    console.error("Gemini API Error:", error);
     return "（AI 暫時無法回應，請檢查金鑰權限。）";
   }
 };
 
+/**
+ * Optimizes track titles using Gemini 3 Pro.
+ * Optimization is considered a complex text task requiring better reasoning.
+ */
 export const cleanTrackTitles = async (rawTitles: string[], albumTitle: string, albumDescription: string) => {
-  const ai = getSafeAI();
-  if (!ai) return rawTitles;
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `優化曲名：${JSON.stringify(rawTitles)}，專輯：${albumTitle}`,
+      model: 'gemini-3-pro-preview',
+      contents: `你是一位專業音樂編輯。請根據專輯名稱「${albumTitle}」和描述「${albumDescription}」，優化以下音軌名稱列表。
+      任務：移除檔名後綴（如 .mp3）、序號或不必要的雜訊，使其更具藝術感與一致性。
+      原始名稱列表：${JSON.stringify(rawTitles)}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -47,8 +43,10 @@ export const cleanTrackTitles = async (rawTitles: string[], albumTitle: string, 
         },
       }
     });
-    return JSON.parse(response.text || "[]") || rawTitles;
+    const text = response.text;
+    return text ? JSON.parse(text) : rawTitles;
   } catch (error) {
+    console.error("Gemini API Error:", error);
     return rawTitles;
   }
 };
