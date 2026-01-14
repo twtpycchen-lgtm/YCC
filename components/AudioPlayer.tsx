@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { PlayerState } from '../types';
 
@@ -34,14 +35,12 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
   ];
 
   useEffect(() => {
-    if (!audioRef.current || !state.currentTrack) return;
+    const audio = audioRef.current;
+    if (!audio || !state.currentTrack) return;
     
-    // 關鍵修正：透過 ref 手動設定屬性，避開 JSX 類型檢查
-    try {
-      (audioRef.current as any).referrerPolicy = "no-referrer";
-    } catch (e) {
-      console.error("Failed to set referrerPolicy", e);
-    }
+    // 透過 setAttribute 設定，這在 TS 類型檢查中是安全的（隱形的）
+    // 這是穿透 Google Drive 串流限制的關鍵
+    audio.setAttribute('referrerpolicy', 'no-referrer');
     
     setError(null);
     setIsBuffering(true);
@@ -50,14 +49,14 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
     const id = getDriveId(state.currentTrack.audioUrl);
     if (id) {
       const urls = getStreamUrls(id);
-      audioRef.current.src = urls[0];
+      audio.src = urls[0];
     } else {
-      audioRef.current.src = state.currentTrack.audioUrl;
+      audio.src = state.currentTrack.audioUrl;
     }
     
-    audioRef.current.load();
+    audio.load();
     if (state.isPlaying) {
-      const playPromise = audioRef.current.play();
+      const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.catch(() => {
           if (state.isPlaying) onTogglePlay();
@@ -109,8 +108,16 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
 
   if (!state.currentTrack) return null;
 
+  const formatTime = (time: number) => {
+    if (isNaN(time) || !isFinite(time)) return '0:00';
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="fixed bottom-6 left-6 right-6 z-[60] glass rounded-3xl p-4 md:p-6 shadow-2xl border border-white/5 animate-fade-in-up">
+      {/* 這裡絕對不能包含 referrerPolicy 屬性 */}
       <audio 
         ref={audioRef} 
         onTimeUpdate={handleTimeUpdate}
@@ -182,13 +189,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
       </div>
     </div>
   );
-};
-
-const formatTime = (time: number) => {
-  if (isNaN(time) || !isFinite(time)) return '0:00';
-  const mins = Math.floor(time / 60);
-  const secs = Math.floor(time % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
 export default AudioPlayer;
