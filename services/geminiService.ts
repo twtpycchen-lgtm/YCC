@@ -1,12 +1,10 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-
-// Initialize the GoogleGenAI client using the API key from environment variables as required
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const getAlbumInsights = async (albumTitle: string, description: string) => {
   try {
-    // Basic text tasks like summarization and intro generation use gemini-3-flash-preview
+    // 初始化放在函式內，避免全域變數載入失敗導致整個 App 黑屏
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `請為名為「${albumTitle}」的音樂專輯提供一段簡短、富有哲學詩意且神秘的專輯介紹。
@@ -17,17 +15,18 @@ export const getAlbumInsights = async (albumTitle: string, description: string) 
       2. 語氣必須高端、具備藝術感且深邃，像是一位資深音樂評論家的筆觸。
       3. 字數約 120 字左右，分段優雅。`,
     });
-    // Access response.text directly as a property (not a method)
+    
     return response.text || "";
   } catch (error) {
     console.error("Gemini Insight Error:", error);
-    return null;
+    return "（敘事生成暫時無法使用，請確認 Vercel 的 API_KEY 設定是否正確。）";
   }
 };
 
 export const cleanTrackTitles = async (rawTitles: string[], albumTitle: string, albumDescription: string) => {
   try {
-    // Use Gemini to transform potentially messy track metadata into artistic titles
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `你是一位享譽國際的音樂策展人。
@@ -45,7 +44,6 @@ export const cleanTrackTitles = async (rawTitles: string[], albumTitle: string, 
       請僅回傳一個純 JSON 字串陣列：["曲名一", "曲名二", ...]。不要包含 markdown 格式或任何解釋。`,
       config: {
         responseMimeType: "application/json",
-        // Recommended approach: use responseSchema to ensure reliable structured output
         responseSchema: {
           type: Type.ARRAY,
           items: {
@@ -55,7 +53,6 @@ export const cleanTrackTitles = async (rawTitles: string[], albumTitle: string, 
       }
     });
     
-    // Trim and parse the response text directly from the property
     const jsonStr = response.text?.trim();
     if (!jsonStr) return rawTitles;
     
