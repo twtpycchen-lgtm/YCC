@@ -15,8 +15,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
   const [retryCount, setRetryCount] = useState(0);
 
   const getDriveId = (url: string) => {
-    if (!url || typeof url !== 'string') return null;
-    if (url.startsWith('blob:')) return null; // 本地檔案不處理
+    if (!url || typeof url !== 'string' || url.startsWith('blob:')) return null;
     const patterns = [
       /[?&]id=([^&]+)/,
       /d\/([a-zA-Z0-9_-]{25,})/,
@@ -29,15 +28,11 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
     return null;
   };
 
-  const getStreamUrls = (id: string) => {
-    // 透過 UUID 強迫瀏覽器跳過任何快取的 403 頁面
-    const uuid = Math.random().toString(36).substring(7);
-    return [
-      `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t&uuid=${uuid}`,
-      `https://drive.google.com/uc?id=${id}&export=download&confirm=t&uuid=${uuid}`,
-      `https://docs.google.com/uc?export=download&id=${id}&uuid=${uuid}`
-    ];
-  };
+  const getStreamUrls = (id: string) => [
+    `https://drive.google.com/uc?export=download&id=${id}`,
+    `https://docs.google.com/uc?export=download&id=${id}`,
+    `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`
+  ];
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -49,25 +44,22 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
 
     const id = getDriveId(state.currentTrack.audioUrl);
     
+    // 解決 CORS 封鎖的核心：移除跨域請求標頭
     if (id) {
-      // 雲端處理
       audio.setAttribute('referrerpolicy', 'no-referrer');
+      // 確保這裡沒有 crossOrigin 屬性影響雲端檔案
       const urls = getStreamUrls(id);
       audio.src = urls[0];
     } else {
-      // 本地 blob 處理
       audio.removeAttribute('referrerpolicy');
       audio.src = state.currentTrack.audioUrl;
     }
     
     audio.load();
     if (state.isPlaying) {
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => {
-          console.warn("[V12] 撥放器啟動受阻，請點擊撥放按鈕。");
-        });
-      }
+      audio.play().catch(e => {
+        console.warn("[V14] 播放受限 (通常為瀏覽器政策)，請手動點擊撥放鈕。");
+      });
     }
   }, [state.currentTrack?.id]);
 
@@ -84,19 +76,21 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
   const handleAudioError = () => {
     if (!audioRef.current || !state.currentTrack) return;
     
-    // 如果是本地 blob 報錯，通常是連結失效（頁面重整）
-    if (state.currentTrack.audioUrl.startsWith('blob:')) {
-      setError("本地檔案暫存已失效，請重新匯入。");
+    const trackUrl = state.currentTrack.audioUrl;
+
+    if (trackUrl.startsWith('blob:')) {
+      setError("本地暫存失效。請重新匯入檔案（重新整理頁面會清空本地快取）。");
       setIsBuffering(false);
       return;
     }
 
-    const id = getDriveId(state.currentTrack.audioUrl);
+    const id = getDriveId(trackUrl);
     if (id) {
       const urls = getStreamUrls(id);
       if (retryCount < urls.length - 1) {
         const nextRetry = retryCount + 1;
         setRetryCount(nextRetry);
+        console.warn(`[V14] 通道 ${retryCount} 遭阻斷，嘗試備用通道 ${nextRetry}`);
         audioRef.current.src = urls[nextRetry];
         audioRef.current.load();
         audioRef.current.play().catch(() => {});
@@ -104,7 +98,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
       }
     }
     
-    setError("撥放失敗。Google 已攔截串流請求。請點擊右側按鈕手動修復授權。");
+    setError("音訊加載失敗。請點擊按鈕手動喚醒 Google 授權。");
     setIsBuffering(false);
   };
 
@@ -113,7 +107,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
     const id = getDriveId(state.currentTrack.audioUrl);
     if (!id) return;
     window.open(`https://drive.google.com/file/d/${id}/view`, '_blank');
-    alert("已在新視窗開啟檔案。請在該分頁確認看到撥放器後，回到本站再次點擊「播放」。這能確保瀏覽器獲得正確的授權 Cookie。");
+    alert("已打開 Google 播放頁面。請確認在那邊能播放後，回到本站再次點擊「播放」。這能將您的登入資訊同步給瀏覽器。");
   };
 
   const handleTimeUpdate = () => {
@@ -133,9 +127,9 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
 
   return (
     <div className="fixed bottom-6 left-6 right-6 z-[60] glass rounded-3xl p-4 md:p-6 shadow-2xl border border-white/5 animate-fade-in-up">
+      {/* 重要：不在此標籤上設定 crossOrigin 屬性，這會導致 Google Drive 報 CORS 錯誤 */}
       <audio 
         ref={audioRef} 
-        crossOrigin="anonymous"
         onTimeUpdate={handleTimeUpdate}
         onEnded={() => { if (state.isPlaying) onTogglePlay(); }}
         onError={handleAudioError}
@@ -160,16 +154,16 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
             <div className="flex items-center gap-2">
               {error ? (
                 <button onClick={openAuthRepair} className="text-[10px] bg-red-600 text-white px-3 py-1 rounded-full font-bold animate-pulse shadow-lg hover:bg-red-500 transition-all">
-                  點擊修復 403 授權
+                  點擊修復 403 封鎖
                 </button>
               ) : isBuffering ? (
                 <span className="text-[9px] text-blue-400 font-bold uppercase tracking-widest animate-pulse">
-                  數據加載中...
+                  建立數據隧道...
                 </span>
               ) : (
                 <span className="text-[9px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
                   <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping"></div>
-                  {state.currentTrack.audioUrl.startsWith('blob:') ? '本地直連模式' : '雲端穿透模式'}
+                  數據傳輸已就緒
                 </span>
               )}
             </div>
