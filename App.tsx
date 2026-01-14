@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { MOCK_ALBUMS } from './constants';
 import { Album, Track, PlayerState } from './types';
@@ -32,7 +33,7 @@ const App: React.FC = () => {
         setAlbums(JSON.parse(saved));
       } catch (e) {
         console.error("Failed to load albums", e);
-        setAlbums(MOCK_ALBUMS);
+        setAlbums([]);
       }
     } else {
       setAlbums(MOCK_ALBUMS);
@@ -76,13 +77,22 @@ const App: React.FC = () => {
     setAlbumToEdit(undefined);
   };
 
-  const handleDeleteAlbum = (id: string) => {
-    if (window.confirm("確定要刪除這張專輯嗎？此動作無法復原。")) {
+  const handleDeleteAlbum = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (window.confirm("確定要刪除這張專輯嗎？此動作將永久移除資料。")) {
       const updated = albums.filter(a => a.id !== id);
       setAlbums(updated);
-      setSelectedAlbum(null);
+      
+      // 如果正在檢視或播放該專輯，則回到主頁或停止播放
+      if (selectedAlbum?.id === id) setSelectedAlbum(null);
       if (playerState.currentAlbum?.id === id) {
-        setPlayerState(prev => ({ ...prev, isPlaying: false, currentTrack: null, currentAlbum: null }));
+        setPlayerState(prev => ({ 
+          ...prev, 
+          isPlaying: false, 
+          currentTrack: null, 
+          currentAlbum: null,
+          progress: 0 
+        }));
       }
     }
   };
@@ -93,10 +103,11 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col relative">
+    <div className="min-h-screen flex flex-col relative selection:bg-white selection:text-black">
+      {/* Background Orbs */}
       <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-900/10 blur-[120px] rounded-full"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-900/10 blur-[120px] rounded-full"></div>
+        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-purple-900/10 blur-[150px] rounded-full animate-pulse"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-900/10 blur-[150px] rounded-full animate-pulse" style={{ animationDelay: '2s' }}></div>
       </div>
 
       <Navbar 
@@ -104,62 +115,66 @@ const App: React.FC = () => {
         onUpload={() => { setAlbumToEdit(undefined); setIsUploadOpen(true); }}
       />
 
-      <main className="flex-grow container mx-auto px-6 pt-24 pb-40">
+      <main className="flex-grow container mx-auto px-6 pt-28 pb-48">
         {!selectedAlbum ? (
-          <>
-            <section className="mb-12">
-              <h1 className="text-5xl md:text-7xl font-bold mb-4 tracking-tighter uppercase font-luxury text-glow">
-                AI Curator <span className="text-gray-500">Discography</span>
+          <div className="animate-fade-in">
+            <section className="mb-16">
+              <h1 className="text-6xl md:text-8xl font-bold mb-6 tracking-tighter uppercase font-luxury text-glow">
+                Suno <span className="text-gray-500">Curator</span>
               </h1>
-              <p className="text-xl text-gray-400 max-w-2xl font-light">
-                Explore the frontier of sound. Every note, every texture, every story—meticulously crafted by Suno Curator AI.
+              <p className="text-xl text-gray-400 max-w-2xl font-light leading-relaxed">
+                將您的 AI 音樂轉化為沉浸式的藝術典藏。支援 Google Drive 雲端串流，讓您的大型音樂作品能隨時隨地優雅撥放。
               </p>
             </section>
 
             {albums.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-32 glass rounded-[3rem] border-dashed border-white/10">
-                <p className="text-gray-600 font-luxury tracking-[0.3em] uppercase mb-8">目前暫無收藏作品</p>
+              <div className="flex flex-col items-center justify-center py-40 glass rounded-[4rem] border-dashed border-white/10">
+                <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-8">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 4v16m8-8H4" /></svg>
+                </div>
+                <p className="text-gray-500 font-luxury tracking-[0.4em] uppercase mb-10 text-sm">您的收藏庫目前空空如也</p>
                 <button 
                   onClick={() => setIsUploadOpen(true)}
-                  className="px-12 py-4 bg-white text-black font-luxury uppercase tracking-widest rounded-full hover:scale-105 transition-all shadow-xl"
+                  className="px-16 py-5 bg-white text-black font-luxury uppercase tracking-widest rounded-full hover:scale-110 hover:shadow-2xl transition-all font-bold"
                 >
                   發佈首張專輯
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
                 {displayedAlbums.map((album) => (
                   <AlbumCard 
                     key={album.id} 
                     album={album} 
                     onClick={() => setSelectedAlbum(album)} 
+                    onDelete={(e) => handleDeleteAlbum(album.id, e)}
                   />
                 ))}
               </div>
             )}
 
             {albums.length > ITEMS_PER_PAGE && (
-              <div className="flex justify-center items-center gap-4 mt-8">
+              <div className="flex justify-center items-center gap-6 mt-20">
                 <button 
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="px-6 py-2 glass rounded-full disabled:opacity-30 hover:bg-white/10 transition-colors uppercase text-sm tracking-widest"
+                  className="w-12 h-12 flex items-center justify-center glass rounded-full disabled:opacity-20 hover:bg-white/10 transition-colors"
                 >
-                  Previous
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 </button>
-                <span className="text-gray-400 font-luxury">
-                  {currentPage} <span className="mx-2">/</span> {totalPages}
+                <span className="text-gray-400 font-luxury tracking-widest text-sm">
+                  {currentPage} <span className="mx-4 text-gray-700">/</span> {totalPages}
                 </span>
                 <button 
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="px-6 py-2 glass rounded-full disabled:opacity-30 hover:bg-white/10 transition-colors uppercase text-sm tracking-widest"
+                  className="w-12 h-12 flex items-center justify-center glass rounded-full disabled:opacity-20 hover:bg-white/10 transition-colors"
                 >
-                  Next
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                 </button>
               </div>
             )}
-          </>
+          </div>
         ) : (
           <AlbumDetailView 
             album={selectedAlbum} 
