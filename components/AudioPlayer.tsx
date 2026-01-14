@@ -42,23 +42,31 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
     setIsBuffering(true);
     setRetryCount(0);
 
-    const id = getDriveId(state.currentTrack.audioUrl);
+    const trackUrl = state.currentTrack.audioUrl;
+    const driveId = getDriveId(trackUrl);
     
-    // V15 關鍵：徹底清除可能觸發 CORS 的屬性
+    // 清除可能干擾相對路徑播放的跨域屬性
     audio.removeAttribute('crossOrigin');
     
-    if (id) {
-      const urls = getStreamUrls(id);
-      audio.src = urls[0];
+    if (driveId) {
+      const urls = getStreamUrls(driveId);
+      audio.src = urls[retryCount];
     } else {
-      audio.src = state.currentTrack.audioUrl;
+      // 直接播放相對路徑或直連網址
+      audio.src = trackUrl;
     }
     
     audio.load();
     if (state.isPlaying) {
-      audio.play().catch(e => {
-        console.warn("[V15] 自動播放受阻，等待點擊：", e);
-      });
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(e => {
+          console.warn("[Audio] 自動播放受阻，或路徑無效:", e);
+          if (e.name === 'NotSupportedError') {
+            setError("檔案格式不支援或路徑無效。");
+          }
+        });
+      }
     }
   }, [state.currentTrack?.id]);
 
@@ -76,36 +84,19 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
     if (!audioRef.current || !state.currentTrack) return;
     
     const trackUrl = state.currentTrack.audioUrl;
-    if (trackUrl.startsWith('blob:')) {
-      setError("本地暫存失效。");
-      setIsBuffering(false);
-      return;
-    }
+    const driveId = getDriveId(trackUrl);
 
-    const id = getDriveId(trackUrl);
-    if (id) {
-      const urls = getStreamUrls(id);
+    if (driveId) {
+      const urls = getStreamUrls(driveId);
       if (retryCount < urls.length - 1) {
-        const nextRetry = retryCount + 1;
-        setRetryCount(nextRetry);
-        console.warn(`[V15] 切換備用通道 ${nextRetry}`);
-        audioRef.current.src = urls[nextRetry];
-        audioRef.current.load();
-        audioRef.current.play().catch(() => {});
+        setRetryCount(prev => prev + 1);
         return;
       }
+      setError("Google Drive 串流受阻。");
+    } else {
+      setError("無法讀取檔案。請檢查路徑或網路。");
     }
-    
-    setError("403 Forbidden: Google 已阻斷串流。");
     setIsBuffering(false);
-  };
-
-  const openAuthRepair = () => {
-    if (!state.currentTrack) return;
-    const id = getDriveId(state.currentTrack.audioUrl);
-    if (!id) return;
-    window.open(`https://drive.google.com/file/d/${id}/view`, '_blank');
-    alert("請在開啟的分頁確保能看到播放器並能播放（證明授權 Cookie 已寫入），然後回到這裡再次點擊「播放」。");
   };
 
   const handleTimeUpdate = () => {
@@ -133,7 +124,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
         onWaiting={() => setIsBuffering(true)}
         onCanPlay={() => { setError(null); setIsBuffering(false); }}
         onPlaying={() => setIsBuffering(false)}
-        preload="metadata"
+        preload="auto"
       />
       
       <div className="flex flex-col md:flex-row items-center gap-6">
@@ -150,17 +141,17 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
             <h4 className="font-bold text-sm truncate tracking-wide text-glow text-white">{state.currentTrack.title}</h4>
             <div className="flex items-center gap-2">
               {error ? (
-                <button onClick={openAuthRepair} className="text-[10px] bg-red-600 text-white px-3 py-1 rounded-full font-bold animate-pulse shadow-lg hover:bg-red-500 transition-all">
-                  點擊修復 403 阻斷
-                </button>
+                <span className="text-[9px] text-red-500 font-bold uppercase tracking-widest animate-pulse">
+                  錯誤: {error}
+                </span>
               ) : isBuffering ? (
                 <span className="text-[9px] text-blue-400 font-bold uppercase tracking-widest animate-pulse">
-                  解析數據流...
+                  Buffering...
                 </span>
               ) : (
-                <span className="text-[9px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping"></div>
-                  串流穩定
+                <span className="text-[9px] text-emerald-500 font-bold uppercase tracking-widest flex items-center gap-1">
+                  <div className="w-1 h-1 rounded-full bg-emerald-500 animate-ping"></div>
+                  串流正常
                 </span>
               )}
             </div>

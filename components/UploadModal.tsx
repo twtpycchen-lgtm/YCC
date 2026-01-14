@@ -82,22 +82,29 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
     const newTracks: any[] = [];
 
     lines.forEach((line, idx) => {
-      const path = line.trim();
-      const fileName = path.split('/').pop() || '未知資產';
+      let rawPath = line.trim();
+      
+      // 1. 移除 Windows "複製為路徑" 可能產生的雙引號
+      rawPath = rawPath.replace(/^"(.*)"$/, '$1');
+      
+      // 2. 將 Windows 反斜線 \ 轉為網頁斜線 /
+      rawPath = rawPath.replace(/\\/g, '/');
+
+      const fileName = rawPath.split('/').pop() || '未知資產';
       const cleanName = fileName.replace(/\.(mp3|wav|ogg|aac|m4a)$/i, '');
       
-      // 重要：處理中文檔名與空格，確保 URL 格式正確
-      // encodeURI 會保留 / 等符號，但轉義中文字
-      const finalUrl = path.startsWith('/') ? encodeURI(path) : `/${encodeURI(path)}`;
+      // 3. 處理中文檔名與特殊字元。
+      // 注意：GitHub Pages 建議使用相對路徑 (不以 / 開頭)，除非檔案在根目錄。
+      const encodedPath = encodeURI(rawPath);
 
       newTracks.push({
         id: `asset-${Date.now()}-${idx}`,
         title: decodeURIComponent(cleanName),
-        audioUrl: finalUrl,
+        audioUrl: encodedPath,
         duration: '--:--',
-        genre: '專案內部資產',
-        mp3Url: finalUrl,
-        wavUrl: finalUrl
+        genre: '專案資產',
+        mp3Url: encodedPath,
+        wavUrl: encodedPath
       });
     });
 
@@ -161,7 +168,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
         title: file.name.replace(/\.[^/.]+$/, ""),
         audioUrl: URL.createObjectURL(file),
         duration: '--:--',
-        genre: '臨時本地預覽',
+        genre: '臨時預覽',
         mp3Url: '#',
         wavUrl: '#'
       }));
@@ -198,10 +205,10 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
         <div className="flex justify-between items-start mb-16">
           <div className="space-y-4">
             <h2 className="text-6xl font-luxury tracking-[0.2em] uppercase text-white leading-tight">
-              {albumToEdit ? '修改典藏' : '作品典藏室'}
+              {albumToEdit ? '修改作品' : '作品典藏室'}
             </h2>
             <div className="flex flex-wrap gap-3">
-               <button type="button" onClick={() => setActiveTab('assets')} className={`text-[10px] uppercase tracking-[0.2em] px-6 py-3 rounded-full border transition-all duration-500 ${activeTab === 'assets' ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>專案資產 (支援中文/批次)</button>
+               <button type="button" onClick={() => setActiveTab('assets')} className={`text-[10px] uppercase tracking-[0.2em] px-6 py-3 rounded-full border transition-all duration-500 ${activeTab === 'assets' ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>專案資產 (GitHub)</button>
                <button type="button" onClick={() => setActiveTab('cloud')} className={`text-[10px] uppercase tracking-[0.2em] px-6 py-3 rounded-full border transition-all duration-500 ${activeTab === 'cloud' ? 'bg-blue-600 text-white border-blue-500 shadow-lg' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>Google Drive</button>
                <button type="button" onClick={() => setActiveTab('direct')} className={`text-[10px] uppercase tracking-[0.2em] px-6 py-3 rounded-full border transition-all duration-500 ${activeTab === 'direct' ? 'bg-purple-600 text-white border-purple-500 shadow-lg' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>串流直連</button>
                <button type="button" onClick={() => setActiveTab('local')} className={`text-[10px] uppercase tracking-[0.2em] px-6 py-3 rounded-full border transition-all duration-500 ${activeTab === 'local' ? 'bg-white text-black border-white' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>本地匯入</button>
@@ -233,13 +240,17 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
               {activeTab === 'assets' && (
                 <div className="space-y-6">
                   <div className="p-6 bg-emerald-500/10 rounded-3xl border border-emerald-500/20 mb-2">
-                    <p className="text-[10px] text-emerald-400 uppercase tracking-widest leading-relaxed font-bold">🌿 批次資產導入 (支援中文)</p>
-                    <p className="text-[9px] text-gray-500 mt-2 leading-relaxed">一行一個路徑。小技巧：在電腦資料夾全選檔案按「複製路徑」並貼上。</p>
+                    <p className="text-[10px] text-emerald-400 uppercase tracking-widest leading-relaxed font-bold">🌿 批次匯入指南</p>
+                    <ul className="text-[9px] text-gray-500 mt-2 space-y-1 list-disc list-inside">
+                      <li>電腦全選檔案後按「Shift + 右鍵」選「複製為路徑」</li>
+                      <li>直接在此貼上，程式會自動移除引號與修正斜線</li>
+                      <li>支援中文檔名。請確保檔案已上傳至 GitHub 目標資料夾</li>
+                    </ul>
                   </div>
                   <textarea 
                     value={assetPaths} 
                     onChange={(e) => setAssetPaths(e.target.value)} 
-                    placeholder="songs/第一首.mp3&#10;songs/第二首.wav" 
+                    placeholder="例如：songs\我的創作.mp3" 
                     className="w-full h-40 bg-white/[0.02] border border-white/5 rounded-[2.5rem] px-10 py-8 text-xs focus:border-emerald-500 outline-none transition-all resize-none text-gray-400 leading-relaxed scrollbar-custom" 
                   />
                   <button type="button" onClick={handleAssetBatchImport} disabled={!assetPaths.trim()} className="w-full py-6 rounded-full bg-emerald-600 text-white text-[10px] uppercase tracking-[0.4em] font-bold hover:bg-emerald-500 transition-all shadow-xl">
@@ -247,13 +258,14 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
                   </button>
                 </div>
               )}
-
+              
+              {/* 其他 Tab 內容保持不變... */}
               {activeTab === 'cloud' && (
                 <div className="space-y-6">
                   <div className="p-6 bg-blue-500/10 rounded-3xl border border-blue-500/20 mb-2">
-                    <p className="text-[10px] text-blue-400 uppercase tracking-widest leading-relaxed font-bold">🚀 雲端同步：Google Drive 模式</p>
+                    <p className="text-[10px] text-blue-400 uppercase tracking-widest leading-relaxed font-bold">🚀 雲端同步模式</p>
                   </div>
-                  <textarea value={batchLinks} onChange={(e) => setBatchLinks(e.target.value)} placeholder="貼上 Google Drive 分享連結..." className="w-full h-32 bg-white/[0.02] border border-white/5 rounded-[2.5rem] px-10 py-8 text-xs focus:border-blue-500 outline-none transition-all resize-none text-gray-400 leading-relaxed" />
+                  <textarea value={batchLinks} onChange={(e) => setBatchLinks(e.target.value)} placeholder="貼上 Google Drive 連結..." className="w-full h-32 bg-white/[0.02] border border-white/5 rounded-[2.5rem] px-10 py-8 text-xs focus:border-blue-500 outline-none transition-all resize-none text-gray-400 leading-relaxed" />
                   <button type="button" onClick={handleBatchImport} disabled={isParsing || !batchLinks} className={`w-full py-6 rounded-[2rem] text-[10px] uppercase tracking-[0.4em] font-bold transition-all ${isParsing ? 'bg-gray-900 text-gray-700' : 'bg-white text-black hover:bg-gray-100 shadow-2xl'}`}>
                     {isParsing ? '解析中...' : '同步雲端連結'}
                   </button>
@@ -263,7 +275,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
               {activeTab === 'direct' && (
                 <div className="space-y-6">
                   <div className="p-6 bg-purple-500/10 rounded-3xl border border-purple-500/20 mb-2">
-                    <p className="text-[10px] text-purple-400 uppercase tracking-widest leading-relaxed font-bold">💎 專業模式：MP3/WAV 直連網址</p>
+                    <p className="text-[10px] text-purple-400 uppercase tracking-widest leading-relaxed font-bold">💎 網址直連模式</p>
                   </div>
                   <input value={directUrl} onChange={(e) => setDirectUrl(e.target.value)} placeholder="https://cdn.com/song.mp3" className="w-full bg-white/[0.02] border border-white/5 rounded-full px-10 py-5 text-xs focus:border-purple-500 outline-none text-gray-400" />
                   <button type="button" onClick={handleDirectUrlImport} disabled={!directUrl} className="w-full py-6 rounded-full bg-purple-600 text-white text-[10px] uppercase tracking-[0.4em] font-bold hover:bg-purple-500 transition-all shadow-xl">
@@ -275,10 +287,10 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
               {activeTab === 'local' && (
                 <div className="space-y-6">
                   <div className="p-6 bg-amber-500/10 rounded-3xl border border-amber-500/20 mb-2">
-                    <p className="text-[10px] text-amber-500 uppercase tracking-widest leading-relaxed font-bold">⚠️ 本地匯入：刷新即消失</p>
+                    <p className="text-[10px] text-amber-500 uppercase tracking-widest leading-relaxed font-bold">⚠️ 本地臨時預覽</p>
                   </div>
                   <div onClick={() => audioInputRef.current?.click()} className="p-16 rounded-[3rem] glass border border-dashed border-white/10 text-center group cursor-pointer hover:border-white/30 transition-all">
-                    <span className="text-[10px] uppercase tracking-[0.4em] text-blue-400 font-bold">選擇音訊檔案預覽</span>
+                    <span className="text-[10px] uppercase tracking-[0.4em] text-blue-400 font-bold">選擇檔案</span>
                     <input type="file" ref={audioInputRef} onChange={handleAudioFiles} className="hidden" accept="audio/*" multiple />
                   </div>
                 </div>
@@ -294,8 +306,8 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
                         setTracks(newTracks);
                       }} />
                       <div className="flex items-center gap-2 mt-1">
-                        <span className={`w-2 h-2 rounded-full ${t.audioUrl?.startsWith('blob:') ? 'bg-amber-500' : t.id?.startsWith('asset') ? 'bg-emerald-500' : t.id?.startsWith('drive') ? 'bg-blue-500' : 'bg-purple-500'}`}></span>
-                        <span className="text-[8px] uppercase tracking-widest text-gray-600">{t.genre} · Track #{i + 1}</span>
+                        <span className={`w-2 h-2 rounded-full ${t.id?.startsWith('asset') ? 'bg-emerald-500' : t.id?.startsWith('drive') ? 'bg-blue-500' : 'bg-purple-500'}`}></span>
+                        <span className="text-[8px] uppercase tracking-widest text-gray-600 truncate max-w-[150px]">{t.audioUrl}</span>
                       </div>
                     </div>
                     <button type="button" onClick={() => setTracks(tracks.filter((_, idx) => idx !== i))} className="text-gray-800 hover:text-red-500/60 transition-colors p-2"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19V4M6,19A2,2 0 008,21H16A2,2 0 0018,19V7H6V19Z" /></svg></button>
@@ -319,7 +331,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
               <textarea value={story} onChange={(e) => setStory(e.target.value)} rows={10} className="w-full bg-white/[0.01] border border-white/5 rounded-[3.5rem] px-14 py-14 focus:border-white/10 transition-all outline-none text-xl italic leading-[1.8] text-gray-400 font-light scrollbar-custom" placeholder="讓 AI 為您的音樂宇宙編寫一段專屬故事..." />
             </div>
             <button type="submit" disabled={!title || !coverImage || tracks.length === 0} className="w-full py-12 bg-white text-black rounded-[3rem] font-luxury text-3xl uppercase tracking-[0.8em] hover:bg-gray-100 transition-all shadow-[0_20px_60px_rgba(255,255,255,0.1)] active:scale-[0.98] disabled:opacity-10 group relative overflow-hidden">
-               <span className="relative z-10">{albumToEdit ? '確認修改' : '正式發佈'}</span>
+               <span className="relative z-10">{albumToEdit ? '保存修改' : '正式發佈'}</span>
                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
             </button>
           </div>
