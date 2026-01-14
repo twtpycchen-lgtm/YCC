@@ -16,6 +16,9 @@ const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importValue, setImportValue] = useState('');
   const [albumToEdit, setAlbumToEdit] = useState<Album | undefined>(undefined);
   const [isCuratorMode, setIsCuratorMode] = useState(false); 
   
@@ -26,24 +29,24 @@ const App: React.FC = () => {
     progress: 0,
   });
 
-  // 載入資料並處理 URL 路由
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     let loadedAlbums: Album[] = [];
+    
     if (saved) {
       try {
-        loadedAlbums = JSON.parse(saved);
-        setAlbums(loadedAlbums);
+        const parsed = JSON.parse(saved);
+        // 如果 localStorage 有資料且非空陣列，就用它；否則用靜態配置
+        loadedAlbums = (parsed && parsed.length > 0) ? parsed : MOCK_ALBUMS;
       } catch (e) {
-        setAlbums(MOCK_ALBUMS);
         loadedAlbums = MOCK_ALBUMS;
       }
     } else {
-      setAlbums(MOCK_ALBUMS);
       loadedAlbums = MOCK_ALBUMS;
     }
+    
+    setAlbums(loadedAlbums);
 
-    // 處理 URL Hash (例如: #album-123)
     const handleHashChange = () => {
       const hash = window.location.hash;
       if (hash.startsWith('#album-')) {
@@ -56,7 +59,7 @@ const App: React.FC = () => {
     };
 
     window.addEventListener('hashchange', handleHashChange);
-    handleHashChange(); // 初次載入執行一次
+    handleHashChange();
 
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
@@ -72,26 +75,6 @@ const App: React.FC = () => {
     } else {
       window.location.hash = '';
     }
-  };
-
-  const totalPages = Math.max(1, Math.ceil(albums.length / ITEMS_PER_PAGE));
-  const displayedAlbums = albums.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-
-  const handlePlayTrack = (album: Album, track: Track) => {
-    setPlayerState((prev) => ({
-      ...prev,
-      currentAlbum: album,
-      currentTrack: track,
-      isPlaying: true,
-      progress: 0,
-    }));
-  };
-
-  const handleTogglePlay = () => {
-    setPlayerState((prev) => ({ ...prev, isPlaying: !prev.isPlaying }));
   };
 
   const handleSaveAlbum = (albumData: Album) => {
@@ -115,11 +98,29 @@ const App: React.FC = () => {
         setSelectedAlbum(null);
         window.location.hash = '';
       }
-      if (playerState.currentAlbum?.id === id) {
-        setPlayerState(prev => ({ ...prev, isPlaying: false, currentTrack: null, currentAlbum: null }));
-      }
     }
   };
+
+  const handleImportData = () => {
+    try {
+      const parsed = JSON.parse(importValue);
+      if (Array.isArray(parsed)) {
+        setAlbums(parsed);
+        setIsImportOpen(false);
+        setImportValue('');
+        alert("導入成功！");
+      } else {
+        alert("資料格式不正確，應為一個陣列。");
+      }
+    } catch (e) {
+      alert("解析 JSON 失敗，請檢查格式。");
+    }
+  };
+
+  const displayedAlbums = albums.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   return (
     <div className="min-h-screen flex flex-col relative selection:bg-white selection:text-black">
@@ -131,6 +132,8 @@ const App: React.FC = () => {
       <Navbar 
         onHome={() => handleSelectAlbum(null)} 
         onUpload={() => { setAlbumToEdit(undefined); setIsUploadOpen(true); }}
+        onExport={() => setIsExportOpen(true)}
+        onImport={() => setIsImportOpen(true)}
         isCuratorMode={isCuratorMode}
         toggleCuratorMode={() => setIsCuratorMode(!isCuratorMode)}
       />
@@ -151,16 +154,13 @@ const App: React.FC = () => {
               </div>
               <p className="text-xl text-gray-400 max-w-2xl font-light leading-relaxed">
                 {isCuratorMode 
-                  ? "管理您的 AI 音樂典藏。您可以新增專輯、編輯內容或潤飾 AI 故事。"
+                  ? "管理您的 AI 音樂典藏。點擊 Export 並更新 constants.ts 以發佈全球。"
                   : "沉浸在 AI 創作的音樂宇宙。每一張專輯都是一段獨特的感官旅程。"}
               </p>
             </section>
 
             {albums.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-40 glass rounded-[4rem] border-dashed border-white/10">
-                <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-8">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 4v16m8-8H4" /></svg>
-                </div>
                 <p className="text-gray-500 font-luxury tracking-[0.4em] uppercase mb-10 text-sm">目前尚無公開作品</p>
                 {isCuratorMode && <button onClick={() => setIsUploadOpen(true)} className="px-16 py-5 bg-white text-black font-luxury uppercase tracking-widest rounded-full hover:scale-110 hover:shadow-2xl transition-all font-bold">發佈首張專輯</button>}
               </div>
@@ -181,7 +181,7 @@ const App: React.FC = () => {
           <AlbumDetailView 
             album={selectedAlbum} 
             onBack={() => handleSelectAlbum(null)} 
-            onPlayTrack={(track) => handlePlayTrack(selectedAlbum, track)}
+            onPlayTrack={(track) => setPlayerState(prev => ({ ...prev, currentAlbum: selectedAlbum, currentTrack: track, isPlaying: true, progress: 0 }))}
             onDelete={() => handleDeleteAlbum(selectedAlbum.id)}
             onEdit={() => { setAlbumToEdit(selectedAlbum); setIsUploadOpen(true); }}
             currentTrackId={playerState.currentTrack?.id}
@@ -191,8 +191,49 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {isUploadOpen && <UploadModal onClose={() => { setIsUploadOpen(false); setAlbumToEdit(undefined); }} onUpload={handleSaveAlbum} albumToEdit={albumToEdit} />}
-      <AudioPlayer state={playerState} onTogglePlay={handleTogglePlay} onProgressChange={(p) => setPlayerState(prev => ({ ...prev, progress: p }))} />
+      {/* Export Modal */}
+      {isExportOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/90 backdrop-blur-xl">
+          <div className="glass w-full max-w-2xl rounded-[2rem] p-10 border border-white/10 shadow-2xl">
+            <h3 className="text-2xl font-luxury mb-4 text-emerald-400">Step 1: 導出數據</h3>
+            <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+              請複製下方代碼，並貼到您的 <code className="text-white">constants.ts</code> 檔案中。這將使您的作品永久公開。
+            </p>
+            <textarea 
+              readOnly 
+              value={JSON.stringify(albums, null, 2)} 
+              className="w-full h-64 bg-black/50 rounded-xl p-4 text-xs font-mono text-gray-500 focus:outline-none border border-white/5 mb-6"
+            />
+            <div className="flex gap-4">
+              <button onClick={() => { navigator.clipboard.writeText(JSON.stringify(albums, null, 2)); alert("代碼已複製！請前往 constants.ts 修改。"); }} className="flex-grow py-4 bg-white text-black font-bold uppercase text-[10px] tracking-widest rounded-xl">複製並準備發佈</button>
+              <button onClick={() => setIsExportOpen(false)} className="px-8 py-4 border border-white/10 text-white rounded-xl text-[10px] uppercase tracking-widest">取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Modal */}
+      {isImportOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/90 backdrop-blur-xl">
+          <div className="glass w-full max-w-2xl rounded-[2rem] p-10 border border-white/10 shadow-2xl">
+            <h3 className="text-2xl font-luxury mb-4 text-purple-400">導入配置</h3>
+            <p className="text-gray-400 text-sm mb-6">請貼上先前導出的 JSON 數據以回復您的專輯庫。</p>
+            <textarea 
+              value={importValue}
+              onChange={(e) => setImportValue(e.target.value)}
+              placeholder='貼上 [{ "id": ... }] 格式的資料'
+              className="w-full h-64 bg-black/50 rounded-xl p-4 text-xs font-mono text-white focus:outline-none border border-white/10 mb-6"
+            />
+            <div className="flex gap-4">
+              <button onClick={handleImportData} className="flex-grow py-4 bg-purple-600 text-white font-bold uppercase text-[10px] tracking-widest rounded-xl hover:bg-purple-500 transition-colors">確認導入</button>
+              <button onClick={() => { setIsImportOpen(false); setImportValue(''); }} className="px-8 py-4 border border-white/10 text-white rounded-xl text-[10px] uppercase tracking-widest">取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isUploadOpen && <UploadModal onClose={() => setIsUploadOpen(false)} onUpload={handleSaveAlbum} albumToEdit={albumToEdit} />}
+      <AudioPlayer state={playerState} onTogglePlay={() => setPlayerState(prev => ({ ...prev, isPlaying: !prev.isPlaying }))} onProgressChange={(p) => setPlayerState(prev => ({ ...prev, progress: p }))} />
 
       <footer className="py-12 flex flex-col items-center opacity-30 hover:opacity-100 transition-opacity">
         <button onClick={() => setIsCuratorMode(!isCuratorMode)} className="text-[9px] uppercase tracking-[0.4em] text-gray-500 hover:text-white transition-colors">
