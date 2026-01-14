@@ -16,7 +16,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
   const [retryCount, setRetryCount] = useState(0);
 
   const getDriveId = (url: string) => {
-    // 支援多種 Drive 連結格式的提取
     const patterns = [
       /[?&]id=([^&]+)/,
       /d\/([a-zA-Z0-9_-]{25,})\//,
@@ -30,16 +29,16 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
   };
 
   const getStreamUrls = (id: string) => [
-    // 方案 A: 帶有 confirm=t 的直接下載端點 (對付大檔案最有效)
     `https://drive.google.com/uc?id=${id}&export=download&confirm=t`,
-    // 方案 B: 模擬舊版瀏覽器的端點
     `https://docs.google.com/uc?id=${id}&export=download`,
-    // 方案 C: 備用節點
     `https://drive.google.com/u/0/uc?id=${id}&export=download`
   ];
 
   useEffect(() => {
     if (!audioRef.current || !state.currentTrack) return;
+    
+    // 手動設定屬性以避開 TS2322 類型錯誤
+    (audioRef.current as any).referrerPolicy = "no-referrer";
     
     setError(null);
     setIsBuffering(true);
@@ -48,9 +47,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
     const id = getDriveId(state.currentTrack.audioUrl);
     if (id) {
       const urls = getStreamUrls(id);
-      // 強制重設音源，解決某些瀏覽器快取舊錯誤的問題
       audioRef.current.src = urls[0];
-      console.log("嘗試串流 ID:", id);
     } else {
       audioRef.current.src = state.currentTrack.audioUrl;
     }
@@ -84,7 +81,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
       if (retryCount < urls.length - 1) {
         const nextRetry = retryCount + 1;
         setRetryCount(nextRetry);
-        console.warn(`節點 ${retryCount} 失敗，正在嘗試切換備用端點...`);
         audioRef.current.src = urls[nextRetry];
         audioRef.current.load();
         audioRef.current.play().catch(() => {});
@@ -121,8 +117,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
         onCanPlay={() => { setError(null); setIsBuffering(false); }}
         onPlaying={() => setIsBuffering(false)}
         preload="auto"
-        // 關鍵：隱藏 Referer 是穿透 Google 防護層的必備手段
-        referrerPolicy="no-referrer"
       />
       
       <div className="flex flex-col md:flex-row items-center gap-6">
