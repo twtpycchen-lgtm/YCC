@@ -36,7 +36,6 @@ const App: React.FC = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // 如果 localStorage 有資料且非空陣列，就用它；否則用靜態配置
         loadedAlbums = (parsed && parsed.length > 0) ? parsed : MOCK_ALBUMS;
       } catch (e) {
         loadedAlbums = MOCK_ALBUMS;
@@ -109,11 +108,18 @@ const App: React.FC = () => {
         setIsImportOpen(false);
         setImportValue('');
         alert("導入成功！");
-      } else {
-        alert("資料格式不正確，應為一個陣列。");
       }
     } catch (e) {
       alert("解析 JSON 失敗，請檢查格式。");
+    }
+  };
+
+  const handleResetToStatic = () => {
+    if (window.confirm("這將會清除您目前在瀏覽器緩存的所有修改，並還原至 constants.ts 檔案中的數據。確定嗎？")) {
+      localStorage.removeItem(STORAGE_KEY);
+      setAlbums(MOCK_ALBUMS);
+      setIsImportOpen(false);
+      alert("已還原至公開發佈版本。");
     }
   };
 
@@ -154,7 +160,7 @@ const App: React.FC = () => {
               </div>
               <p className="text-xl text-gray-400 max-w-2xl font-light leading-relaxed">
                 {isCuratorMode 
-                  ? "管理您的 AI 音樂典藏。點擊 Export 並更新 constants.ts 以發佈全球。"
+                  ? "您正在編輯本地存檔。點擊 Export 並將代碼貼回代碼庫即可發佈至全世界。"
                   : "沉浸在 AI 創作的音樂宇宙。每一張專輯都是一段獨特的感官旅程。"}
               </p>
             </section>
@@ -193,20 +199,23 @@ const App: React.FC = () => {
 
       {/* Export Modal */}
       {isExportOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/90 backdrop-blur-xl">
-          <div className="glass w-full max-w-2xl rounded-[2rem] p-10 border border-white/10 shadow-2xl">
-            <h3 className="text-2xl font-luxury mb-4 text-emerald-400">Step 1: 導出數據</h3>
-            <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-              請複製下方代碼，並貼到您的 <code className="text-white">constants.ts</code> 檔案中。這將使您的作品永久公開。
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-xl">
+          <div className="glass w-full max-w-2xl rounded-[2.5rem] p-10 border border-white/10 shadow-2xl">
+            <h3 className="text-2xl font-luxury mb-4 text-emerald-400 tracking-widest">發佈至全球</h3>
+            <p className="text-gray-400 text-sm mb-6 leading-relaxed font-light">
+              1. 點擊下方按鈕複製 JSON 代碼。<br/>
+              2. 打開您的程式碼編輯器，找到 <code className="text-white bg-white/10 px-1 rounded">constants.ts</code>。<br/>
+              3. 將代碼貼到 <code className="text-white">MOCK_ALBUMS = [這裡是代碼]</code>。<br/>
+              4. 儲存並 Git Push，您的聽眾就能看到更新！
             </p>
             <textarea 
               readOnly 
               value={JSON.stringify(albums, null, 2)} 
-              className="w-full h-64 bg-black/50 rounded-xl p-4 text-xs font-mono text-gray-500 focus:outline-none border border-white/5 mb-6"
+              className="w-full h-64 bg-black/50 rounded-2xl p-6 text-[10px] font-mono text-gray-500 focus:outline-none border border-white/5 mb-8 scrollbar-custom"
             />
             <div className="flex gap-4">
-              <button onClick={() => { navigator.clipboard.writeText(JSON.stringify(albums, null, 2)); alert("代碼已複製！請前往 constants.ts 修改。"); }} className="flex-grow py-4 bg-white text-black font-bold uppercase text-[10px] tracking-widest rounded-xl">複製並準備發佈</button>
-              <button onClick={() => setIsExportOpen(false)} className="px-8 py-4 border border-white/10 text-white rounded-xl text-[10px] uppercase tracking-widest">取消</button>
+              <button onClick={() => { navigator.clipboard.writeText(JSON.stringify(albums, null, 2)); alert("代碼已複製！請前往編輯器貼上。"); }} className="flex-grow py-5 bg-white text-black font-bold uppercase text-[10px] tracking-widest rounded-xl hover:scale-105 transition-transform">複製 JSON 代碼</button>
+              <button onClick={() => setIsExportOpen(false)} className="px-8 py-5 border border-white/10 text-white rounded-xl text-[10px] uppercase tracking-widest hover:bg-white/5">關閉</button>
             </div>
           </div>
         </div>
@@ -214,19 +223,22 @@ const App: React.FC = () => {
 
       {/* Import Modal */}
       {isImportOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/90 backdrop-blur-xl">
-          <div className="glass w-full max-w-2xl rounded-[2rem] p-10 border border-white/10 shadow-2xl">
-            <h3 className="text-2xl font-luxury mb-4 text-purple-400">導入配置</h3>
-            <p className="text-gray-400 text-sm mb-6">請貼上先前導出的 JSON 數據以回復您的專輯庫。</p>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-xl">
+          <div className="glass w-full max-w-2xl rounded-[2.5rem] p-10 border border-white/10 shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+               <h3 className="text-2xl font-luxury text-purple-400 tracking-widest">數據恢復</h3>
+               <button onClick={handleResetToStatic} className="text-[9px] text-gray-500 hover:text-red-400 underline uppercase tracking-widest transition-colors">還原至公開版本</button>
+            </div>
+            <p className="text-gray-400 text-sm mb-6 font-light">如果您更換了電腦，可以貼上先前導出的代碼來繼續您的編輯工作。</p>
             <textarea 
               value={importValue}
               onChange={(e) => setImportValue(e.target.value)}
-              placeholder='貼上 [{ "id": ... }] 格式的資料'
-              className="w-full h-64 bg-black/50 rounded-xl p-4 text-xs font-mono text-white focus:outline-none border border-white/10 mb-6"
+              placeholder='貼上 JSON 格式的資料...'
+              className="w-full h-64 bg-black/50 rounded-2xl p-6 text-[10px] font-mono text-white focus:outline-none border border-white/10 mb-8 scrollbar-custom"
             />
             <div className="flex gap-4">
-              <button onClick={handleImportData} className="flex-grow py-4 bg-purple-600 text-white font-bold uppercase text-[10px] tracking-widest rounded-xl hover:bg-purple-500 transition-colors">確認導入</button>
-              <button onClick={() => { setIsImportOpen(false); setImportValue(''); }} className="px-8 py-4 border border-white/10 text-white rounded-xl text-[10px] uppercase tracking-widest">取消</button>
+              <button onClick={handleImportData} className="flex-grow py-5 bg-purple-600 text-white font-bold uppercase text-[10px] tracking-widest rounded-xl hover:bg-purple-500 transition-colors">確認導入並預覽</button>
+              <button onClick={() => { setIsImportOpen(false); setImportValue(''); }} className="px-8 py-5 border border-white/10 text-white rounded-xl text-[10px] uppercase tracking-widest hover:bg-white/5">取消</button>
             </div>
           </div>
         </div>
