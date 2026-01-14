@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Album, Track } from '../types';
 import { getAlbumInsights, cleanTrackTitles } from '../services/geminiService';
@@ -24,23 +23,22 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload }) => {
   const audioInputRef = useRef<HTMLInputElement>(null);
 
   const parseDriveLinks = (text: string) => {
-    // 專門抓取連結中的 ID 部份，排除 view/usp 等參數
-    const driveIdPattern = /[-\w]{28,45}/g;
+    // 支援格式: /file/d/ID/view, /id=ID, /d/ID
+    const driveIdPattern = /[-\w]{25,50}/g;
     const results: any[] = [];
     const seenIds = new Set<string>();
-    const forbidden = ['view', 'usp', 'sharing', 'edit', 'open', 'file', 'folders', 'copy', 'drive', 'google', 'confirm', 'download'];
+    const forbidden = ['view', 'usp', 'sharing', 'edit', 'open', 'file', 'folders', 'copy', 'drive', 'google', 'confirm', 'download', 'docs'];
 
     let match;
     while ((match = driveIdPattern.exec(text)) !== null) {
       const id = match[0];
-      // 過濾掉太短或包含關鍵字的無效 ID
-      if (id.length < 25 || seenIds.has(id) || forbidden.some(word => id.toLowerCase().includes(word))) continue;
+      if (id.length < 25 || seenIds.has(id) || forbidden.some(word => id.toLowerCase() === word)) continue;
       
       seenIds.add(id);
       results.push({
         id: `drive-${id}-${Date.now()}`,
         title: `雲端音軌 ${id.substring(0, 4)}`,
-        audioUrl: `https://drive.google.com/uc?id=${id}&export=download&confirm=t`,
+        audioUrl: `https://drive.google.com/uc?id=${id}&export=download`, // 基礎網址，由 AudioPlayer 做 V12 穿透處理
         duration: '--:--',
         genre: '雲端串流',
         mp3Url: `https://drive.google.com/file/d/${id}/view`,
@@ -59,7 +57,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload }) => {
         setTracks(prev => [...prev, ...newTracks]);
         setBatchLinks('');
       } else {
-        alert("未能辨識有效 ID。請貼上如 https://drive.google.com/file/d/1Yxvhp... 的完整連結。");
+        alert("未能辨識有效 ID。請貼上完整的 Google Drive 分享連結。");
       }
       setIsParsing(false);
     }, 800);
@@ -98,9 +96,9 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload }) => {
   const handleAudioFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newTracks = Array.from(e.target.files).map((file: File, idx) => ({
-        id: `new-${Date.now()}-${idx}`,
+        id: `local-${Date.now()}-${idx}`,
         title: file.name.replace(/\.[^/.]+$/, ""),
-        audioUrl: URL.createObjectURL(file),
+        audioUrl: URL.createObjectURL(file), // 本地連結
         duration: '--:--',
         genre: '錄音室音軌',
         mp3Url: '#',
@@ -168,18 +166,28 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload }) => {
               </div>
               
               {activeTab === 'local' ? (
-                <div onClick={() => audioInputRef.current?.click()} className="p-16 rounded-[3rem] glass border border-dashed border-white/10 text-center group cursor-pointer hover:border-white/30 transition-all">
-                  <span className="text-[10px] uppercase tracking-[0.4em] text-blue-400 font-bold">選擇音訊檔案</span>
-                  <input type="file" ref={audioInputRef} onChange={handleAudioFiles} className="hidden" accept="audio/*" multiple />
+                <div className="space-y-6">
+                  <div className="p-6 bg-amber-500/10 rounded-3xl border border-amber-500/20 mb-2">
+                    <p className="text-[10px] text-amber-500 uppercase tracking-widest leading-relaxed font-bold">
+                      ⚠️ 本地匯入說明：
+                    </p>
+                    <p className="text-[9px] text-gray-400 mt-2 leading-relaxed">
+                      檔案僅暫存於您的瀏覽器記憶體中。刷新網頁後檔案會消失，且他人無法透過連結聽到您的音樂。
+                    </p>
+                  </div>
+                  <div onClick={() => audioInputRef.current?.click()} className="p-16 rounded-[3rem] glass border border-dashed border-white/10 text-center group cursor-pointer hover:border-white/30 transition-all">
+                    <span className="text-[10px] uppercase tracking-[0.4em] text-blue-400 font-bold">選擇音訊檔案</span>
+                    <input type="file" ref={audioInputRef} onChange={handleAudioFiles} className="hidden" accept="audio/*" multiple />
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-6">
                   <div className="p-6 bg-blue-500/10 rounded-3xl border border-blue-500/20 mb-2">
                     <p className="text-[10px] text-blue-400 uppercase tracking-widest leading-relaxed font-bold">
-                      🚀 強制繞過技術已就緒：
+                      🚀 雲端同步說明：
                     </p>
                     <p className="text-[9px] text-gray-400 mt-2 leading-relaxed">
-                      針對大檔案，我們已加入確認標籤來穿透 Google 的病毒警告頁。請確保連結正確並設為「公開」。
+                      使用 Google Drive 連結可實現永久發佈。我們採用 V12 穿透技術自動繞過 Google 的安全警告頁面。
                     </p>
                   </div>
                   <textarea value={batchLinks} onChange={(e) => setBatchLinks(e.target.value)} placeholder="在此貼上 Google Drive 檔案連結..." className="w-full h-48 bg-white/[0.02] border border-white/5 rounded-[2.5rem] px-10 py-10 text-xs focus:border-blue-500 outline-none transition-all resize-none shadow-inner text-gray-400 leading-relaxed" />
@@ -198,7 +206,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload }) => {
                         newTracks[i].title = e.target.value;
                         setTracks(newTracks);
                       }} />
-                      <span className="text-[9px] uppercase tracking-widest text-gray-600 mt-2">Track #{i + 1}</span>
+                      <span className="text-[9px] uppercase tracking-widest text-gray-600 mt-2">{t.audioUrl?.startsWith('blob:') ? '本地快取' : '雲端同步'} · Track #{i + 1}</span>
                     </div>
                     <button type="button" onClick={() => setTracks(tracks.filter((_, idx) => idx !== i))} className="text-gray-800 hover:text-red-500/60 transition-colors p-2"><svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19V4M6,19A2,2 0 008,21H16A2,2 0 0018,19V7H6V19Z" /></svg></button>
                   </div>

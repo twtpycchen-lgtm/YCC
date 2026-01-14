@@ -16,6 +16,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
 
   const getDriveId = (url: string) => {
     if (!url || typeof url !== 'string') return null;
+    if (url.startsWith('blob:')) return null; // 本地檔案不處理
     const patterns = [
       /[?&]id=([^&]+)/,
       /d\/([a-zA-Z0-9_-]{25,})/,
@@ -28,37 +29,45 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
     return null;
   };
 
-  const getStreamUrls = (id: string) => [
-    // 優先使用 usercontent 網域，這通常用於直接下載，避開 Google Drive 主站的 HTML 警告頁
-    `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`,
-    `https://drive.google.com/uc?id=${id}&export=download&confirm=t`,
-    `https://docs.google.com/uc?export=download&id=${id}`
-  ];
+  const getStreamUrls = (id: string) => {
+    // 透過 UUID 強迫瀏覽器跳過任何快取的 403 頁面
+    const uuid = Math.random().toString(36).substring(7);
+    return [
+      `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t&uuid=${uuid}`,
+      `https://drive.google.com/uc?id=${id}&export=download&confirm=t&uuid=${uuid}`,
+      `https://docs.google.com/uc?export=download&id=${id}&uuid=${uuid}`
+    ];
+  };
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !state.currentTrack) return;
     
-    // 解決連線被拒絕的關鍵：不傳送 Referrer
-    audio.setAttribute('referrerpolicy', 'no-referrer');
-    
     setError(null);
     setIsBuffering(true);
     setRetryCount(0);
-    
+
     const id = getDriveId(state.currentTrack.audioUrl);
+    
     if (id) {
+      // 雲端處理
+      audio.setAttribute('referrerpolicy', 'no-referrer');
       const urls = getStreamUrls(id);
       audio.src = urls[0];
     } else {
+      // 本地 blob 處理
+      audio.removeAttribute('referrerpolicy');
       audio.src = state.currentTrack.audioUrl;
     }
     
     audio.load();
     if (state.isPlaying) {
-      audio.play().catch(e => {
-        console.warn("自動播放受限:", e);
-      });
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          console.warn("[V12] 撥放器啟動受阻，請點擊撥放按鈕。");
+        });
+      }
     }
   }, [state.currentTrack?.id]);
 
@@ -75,13 +84,19 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
   const handleAudioError = () => {
     if (!audioRef.current || !state.currentTrack) return;
     
+    // 如果是本地 blob 報錯，通常是連結失效（頁面重整）
+    if (state.currentTrack.audioUrl.startsWith('blob:')) {
+      setError("本地檔案暫存已失效，請重新匯入。");
+      setIsBuffering(false);
+      return;
+    }
+
     const id = getDriveId(state.currentTrack.audioUrl);
     if (id) {
       const urls = getStreamUrls(id);
       if (retryCount < urls.length - 1) {
         const nextRetry = retryCount + 1;
         setRetryCount(nextRetry);
-        console.warn(`[V11] 網域 ${retryCount} 遭攔截，嘗試備用通道 ${nextRetry}...`);
         audioRef.current.src = urls[nextRetry];
         audioRef.current.load();
         audioRef.current.play().catch(() => {});
@@ -89,7 +104,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
       }
     }
     
-    setError("NotSupportedError: Google 已攔截串流並傳送 HTML 警告。請點擊按鈕修復權限。");
+    setError("撥放失敗。Google 已攔截串流請求。請點擊右側按鈕手動修復授權。");
     setIsBuffering(false);
   };
 
@@ -97,9 +112,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
     if (!state.currentTrack) return;
     const id = getDriveId(state.currentTrack.audioUrl);
     if (!id) return;
-    // 打開預覽頁面，這會強迫瀏覽器獲取 Google 的 Session Cookie
     window.open(`https://drive.google.com/file/d/${id}/view`, '_blank');
-    alert("已在新視窗開啟檔案。請在該分頁確認看到播放器後，回到本站再次點擊「播放」。這能有效繞過 Google 的防盜鏈限制。");
+    alert("已在新視窗開啟檔案。請在該分頁確認看到撥放器後，回到本站再次點擊「播放」。這能確保瀏覽器獲得正確的授權 Cookie。");
   };
 
   const handleTimeUpdate = () => {
@@ -146,16 +160,16 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
             <div className="flex items-center gap-2">
               {error ? (
                 <button onClick={openAuthRepair} className="text-[10px] bg-red-600 text-white px-3 py-1 rounded-full font-bold animate-pulse shadow-lg hover:bg-red-500 transition-all">
-                  點擊修復 Google 授權
+                  點擊修復 403 授權
                 </button>
               ) : isBuffering ? (
                 <span className="text-[9px] text-blue-400 font-bold uppercase tracking-widest animate-pulse">
-                  建立直連隧道中...
+                  數據加載中...
                 </span>
               ) : (
                 <span className="text-[9px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
                   <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping"></div>
-                  數據串流已鎖定
+                  {state.currentTrack.audioUrl.startsWith('blob:') ? '本地直連模式' : '雲端穿透模式'}
                 </span>
               )}
             </div>
