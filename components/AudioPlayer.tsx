@@ -15,6 +15,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
   const [retryCount, setRetryCount] = useState(0);
 
   const getDriveId = (url: string) => {
+    if (!url || typeof url !== 'string') return null;
+    if (!url.includes('drive.google.com') && !url.includes('docs.google.com')) return null;
     const patterns = [
       /[?&]id=([^&]+)/,
       /d\/([a-zA-Z0-9_-]{25,})\//,
@@ -28,17 +30,17 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
   };
 
   const getStreamUrls = (id: string) => [
-    `https://drive.google.com/uc?id=${id}&export=download&confirm=t`,
-    `https://docs.google.com/uc?id=${id}&export=download`,
-    `https://drive.google.com/u/0/uc?id=${id}&export=download`
+    `https://drive.google.com/uc?id=${id}&export=download&confirm=t`, // 強制下載參數，穿透力最強
+    `https://docs.google.com/uc?export=open&id=${id}`,
+    `https://drive.google.com/u/0/uc?id=${id}&export=download`,
+    `https://docs.google.com/uc?id=${id}`
   ];
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !state.currentTrack) return;
     
-    // 關鍵修正：透過底層 API 設定，避開 React 類型檢查
-    // 這能確保 Google Drive 認可請求來源
+    // 設置不發送 Referrer 繞過 Google 限制
     audio.setAttribute('referrerpolicy', 'no-referrer');
     
     setError(null);
@@ -57,7 +59,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
     if (state.isPlaying) {
       const playPromise = audio.play();
       if (playPromise !== undefined) {
-        playPromise.catch(() => {
+        playPromise.catch(e => {
+          console.error("播放失敗:", e);
           if (state.isPlaying) onTogglePlay();
         });
       }
@@ -65,11 +68,12 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
   }, [state.currentTrack?.id]);
 
   useEffect(() => {
-    if (!audioRef.current) return;
+    const audio = audioRef.current;
+    if (!audio) return;
     if (state.isPlaying) {
-      audioRef.current.play().catch(() => {});
+      audio.play().catch(() => {});
     } else {
-      audioRef.current.pause();
+      audio.pause();
     }
   }, [state.isPlaying]);
 
@@ -82,6 +86,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
       if (retryCount < urls.length - 1) {
         const nextRetry = retryCount + 1;
         setRetryCount(nextRetry);
+        console.warn(`[V9] 備用通道 ${nextRetry} 啟動...`);
         audioRef.current.src = urls[nextRetry];
         audioRef.current.load();
         audioRef.current.play().catch(() => {});
@@ -89,8 +94,16 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
       }
     }
     
-    setError("連線被 Google 拒絕。這通常是因為檔案太大導致病毒檢查攔截。");
+    setError("連線被拒絕。Google 偵測到異常存取，請確保權限已設為「任何人皆可檢視」。");
     setIsBuffering(false);
+  };
+
+  const openInNewTab = () => {
+    if (!state.currentTrack) return;
+    const id = getDriveId(state.currentTrack.audioUrl);
+    const link = id ? `https://drive.google.com/file/d/${id}/view` : state.currentTrack.audioUrl;
+    window.open(link, '_blank');
+    alert("已在新分頁開啟。請在該分頁確認可以撥放後，回到本站重新點擊播放即可繞過限制。");
   };
 
   const handleTimeUpdate = () => {
@@ -99,20 +112,14 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
     onProgressChange(progress || 0);
   };
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!audioRef.current) return;
-    const newTime = (parseFloat(e.target.value) / 100) * audioRef.current.duration;
-    audioRef.current.currentTime = newTime;
-  };
-
-  if (!state.currentTrack) return null;
-
   const formatTime = (time: number) => {
     if (isNaN(time) || !isFinite(time)) return '0:00';
     const mins = Math.floor(time / 60);
     const secs = Math.floor(time % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  if (!state.currentTrack) return null;
 
   return (
     <div className="fixed bottom-6 left-6 right-6 z-[60] glass rounded-3xl p-4 md:p-6 shadow-2xl border border-white/5 animate-fade-in-up">
@@ -130,7 +137,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
       <div className="flex flex-col md:flex-row items-center gap-6">
         <div className="flex items-center gap-4 min-w-[340px]">
           <div className="relative w-14 h-14 rounded-xl overflow-hidden shadow-lg flex-shrink-0 bg-gray-900">
-            <img src={state.currentAlbum?.coverImage} alt="Album Art" className="w-full h-full object-cover" />
+            <img src={state.currentAlbum?.coverImage} alt="Cover" className="w-full h-full object-cover" />
             {isBuffering && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -139,26 +146,21 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
           </div>
           <div className="overflow-hidden">
             <h4 className="font-bold text-sm truncate tracking-wide text-glow text-white">{state.currentTrack.title}</h4>
-            <p className="text-xs text-gray-500 uppercase tracking-widest truncate mb-1">{state.currentAlbum?.title}</p>
-            
-            {error ? (
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-[9px] text-red-400 font-bold">連線受阻</span>
-                <a href={state.currentTrack.mp3Url} target="_blank" rel="noreferrer" className="text-[9px] bg-white/10 text-white px-2 py-0.5 rounded border border-white/10 hover:bg-white/20 transition-all">
-                  點此測試權限
-                </a>
-              </div>
-            ) : isBuffering ? (
-              <span className="text-[9px] text-blue-400 font-bold uppercase tracking-widest animate-pulse flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-ping"></div>
-                正在請求雲端資源...
-              </span>
-            ) : (
-              <span className="text-[9px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                已建立直連通道
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {error ? (
+                <button onClick={openInNewTab} className="text-[9px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/30 hover:bg-red-500 hover:text-white transition-all font-bold animate-pulse">
+                  點擊修復連線
+                </button>
+              ) : isBuffering ? (
+                <span className="text-[9px] text-blue-400 font-bold uppercase tracking-widest animate-pulse">
+                  通道建置中...
+                </span>
+              ) : (
+                <span className="text-[9px] text-green-500 font-bold uppercase tracking-widest">
+                  直連加密通道已建立
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -175,13 +177,17 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
           </div>
           <div className="w-full max-w-2xl flex items-center gap-4 px-4">
             <span className="text-[10px] font-mono text-gray-500 w-10 text-right">{audioRef.current ? formatTime(audioRef.current.currentTime) : '0:00'}</span>
-            <input type="range" min="0" max="100" value={state.progress || 0} onChange={handleSeek} className="flex-grow h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-white" />
+            <input type="range" min="0" max="100" value={state.progress || 0} onChange={(e) => {
+              if (audioRef.current) {
+                const newTime = (parseFloat(e.target.value) / 100) * audioRef.current.duration;
+                audioRef.current.currentTime = newTime;
+              }
+            }} className="flex-grow h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-white" />
             <span className="text-[10px] font-mono text-gray-500 w-10">{audioRef.current ? formatTime(audioRef.current.duration) : '0:00'}</span>
           </div>
         </div>
 
         <div className="hidden md:flex items-center gap-4 min-w-[180px] justify-end">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217z" clipRule="evenodd" /></svg>
           <input type="range" min="0" max="1" step="0.01" value={volume} onChange={(e) => { const v = parseFloat(e.target.value); setVolume(v); if (audioRef.current) audioRef.current.volume = v; }} className="w-24 h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-white" />
         </div>
       </div>
