@@ -10,6 +10,7 @@ interface AlbumDetailViewProps {
   onEdit: () => void;
   currentTrackId?: string;
   isPlaying: boolean;
+  isCuratorMode: boolean;
 }
 
 const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({ 
@@ -19,7 +20,8 @@ const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   onDelete,
   onEdit,
   currentTrackId,
-  isPlaying 
+  isPlaying,
+  isCuratorMode
 }) => {
   return (
     <div className="animate-fade-in-up">
@@ -31,29 +33,31 @@ const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-          返回首頁
+          返回收藏庫
         </button>
 
-        <div className="flex gap-4">
-          <button 
-            onClick={onEdit}
-            className="px-6 py-2.5 rounded-full border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-all uppercase text-[10px] tracking-widest font-bold flex items-center gap-2"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-            編輯
-          </button>
-          <button 
-            onClick={onDelete}
-            className="px-6 py-2.5 rounded-full border border-red-500/20 text-red-500/50 hover:text-red-500 hover:bg-red-500/10 transition-all uppercase text-[10px] tracking-widest font-bold flex items-center gap-2"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            刪除
-          </button>
-        </div>
+        {isCuratorMode && (
+          <div className="flex gap-4 animate-fade-in">
+            <button 
+              onClick={onEdit}
+              className="px-6 py-2.5 rounded-full border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-all uppercase text-[10px] tracking-widest font-bold flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              編輯專輯
+            </button>
+            <button 
+              onClick={onDelete}
+              className="px-6 py-2.5 rounded-full border border-red-500/20 text-red-500/50 hover:text-red-500 hover:bg-red-500/10 transition-all uppercase text-[10px] tracking-widest font-bold flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              移除典藏
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
@@ -84,12 +88,14 @@ const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
             ) : (
               <div className="py-10 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-3xl">
                 <p className="text-gray-500 text-sm italic mb-6 text-center px-6">這張專輯還沒有寫下它的故事...</p>
-                <button 
-                  onClick={onEdit}
-                  className="px-8 py-3 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 rounded-full text-[10px] uppercase tracking-widest border border-purple-500/20 transition-all flex items-center gap-2"
-                >
-                  <span className="animate-pulse">✨</span> 使用 AI 生成靈感故事
-                </button>
+                {isCuratorMode && (
+                   <button 
+                    onClick={onEdit}
+                    className="px-8 py-3 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 rounded-full text-[10px] uppercase tracking-widest border border-purple-500/20 transition-all flex items-center gap-2"
+                  >
+                    <span className="animate-pulse">✨</span> 使用 AI 生成靈感故事
+                  </button>
+                )}
               </div>
             )}
           </div>

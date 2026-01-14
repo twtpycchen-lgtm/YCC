@@ -17,6 +17,7 @@ const App: React.FC = () => {
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [albumToEdit, setAlbumToEdit] = useState<Album | undefined>(undefined);
+  const [isCuratorMode, setIsCuratorMode] = useState(false); // 預設為聽眾模式
   
   const [playerState, setPlayerState] = useState<PlayerState>({
     currentTrack: null,
@@ -25,7 +26,6 @@ const App: React.FC = () => {
     progress: 0,
   });
 
-  // 從 LocalStorage 載入資料
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -40,7 +40,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // 儲存到 LocalStorage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(albums));
   }, [albums]);
@@ -82,8 +81,6 @@ const App: React.FC = () => {
     if (window.confirm("確定要刪除這張專輯嗎？此動作將永久移除資料。")) {
       const updated = albums.filter(a => a.id !== id);
       setAlbums(updated);
-      
-      // 如果正在檢視或播放該專輯，則回到主頁或停止播放
       if (selectedAlbum?.id === id) setSelectedAlbum(null);
       if (playerState.currentAlbum?.id === id) {
         setPlayerState(prev => ({ 
@@ -104,7 +101,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col relative selection:bg-white selection:text-black">
-      {/* Background Orbs */}
       <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-purple-900/10 blur-[150px] rounded-full animate-pulse"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-900/10 blur-[150px] rounded-full animate-pulse" style={{ animationDelay: '2s' }}></div>
@@ -113,17 +109,28 @@ const App: React.FC = () => {
       <Navbar 
         onHome={() => { setSelectedAlbum(null); setCurrentPage(1); }} 
         onUpload={() => { setAlbumToEdit(undefined); setIsUploadOpen(true); }}
+        isCuratorMode={isCuratorMode}
+        toggleCuratorMode={() => setIsCuratorMode(!isCuratorMode)}
       />
 
       <main className="flex-grow container mx-auto px-6 pt-28 pb-48">
         {!selectedAlbum ? (
           <div className="animate-fade-in">
             <section className="mb-16">
-              <h1 className="text-6xl md:text-8xl font-bold mb-6 tracking-tighter uppercase font-luxury text-glow">
-                Suno <span className="text-gray-500">Curator</span>
-              </h1>
+              <div className="flex items-center gap-4 mb-4">
+                 <h1 className="text-6xl md:text-8xl font-bold tracking-tighter uppercase font-luxury text-glow">
+                  Suno <span className="text-gray-500">Curator</span>
+                </h1>
+                {isCuratorMode && (
+                  <span className="px-3 py-1 bg-white text-black text-[10px] font-bold uppercase tracking-widest rounded-md animate-pulse">
+                    Curator Mode
+                  </span>
+                )}
+              </div>
               <p className="text-xl text-gray-400 max-w-2xl font-light leading-relaxed">
-                將您的 AI 音樂轉化為沉浸式的藝術典藏。支援 Google Drive 雲端串流，讓您的大型音樂作品能隨時隨地優雅撥放。
+                {isCuratorMode 
+                  ? "管理您的 AI 音樂典藏。您可以新增專輯、編輯內容或潤飾 AI 故事。"
+                  : "沉浸在 AI 創作的音樂宇宙。每一張專輯都是一段獨特的感官旅程。"}
               </p>
             </section>
 
@@ -132,13 +139,15 @@ const App: React.FC = () => {
                 <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-8">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 4v16m8-8H4" /></svg>
                 </div>
-                <p className="text-gray-500 font-luxury tracking-[0.4em] uppercase mb-10 text-sm">您的收藏庫目前空空如也</p>
-                <button 
-                  onClick={() => setIsUploadOpen(true)}
-                  className="px-16 py-5 bg-white text-black font-luxury uppercase tracking-widest rounded-full hover:scale-110 hover:shadow-2xl transition-all font-bold"
-                >
-                  發佈首張專輯
-                </button>
+                <p className="text-gray-500 font-luxury tracking-[0.4em] uppercase mb-10 text-sm">目前尚無公開作品</p>
+                {isCuratorMode && (
+                  <button 
+                    onClick={() => setIsUploadOpen(true)}
+                    className="px-16 py-5 bg-white text-black font-luxury uppercase tracking-widest rounded-full hover:scale-110 hover:shadow-2xl transition-all font-bold"
+                  >
+                    發佈首張專輯
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
@@ -147,7 +156,7 @@ const App: React.FC = () => {
                     key={album.id} 
                     album={album} 
                     onClick={() => setSelectedAlbum(album)} 
-                    onDelete={(e) => handleDeleteAlbum(album.id, e)}
+                    onDelete={isCuratorMode ? (e) => handleDeleteAlbum(album.id, e) : undefined}
                   />
                 ))}
               </div>
@@ -184,6 +193,7 @@ const App: React.FC = () => {
             onEdit={() => handleOpenEdit(selectedAlbum)}
             currentTrackId={playerState.currentTrack?.id}
             isPlaying={playerState.isPlaying}
+            isCuratorMode={isCuratorMode}
           />
         )}
       </main>
@@ -201,6 +211,13 @@ const App: React.FC = () => {
         onTogglePlay={handleTogglePlay}
         onProgressChange={(p) => setPlayerState(prev => ({ ...prev, progress: p }))}
       />
+
+      {/* Footer subtle entry */}
+      <footer className="py-12 flex flex-col items-center opacity-30 hover:opacity-100 transition-opacity">
+        <button onClick={() => setIsCuratorMode(!isCuratorMode)} className="text-[9px] uppercase tracking-[0.4em] text-gray-500 hover:text-white transition-colors">
+          &copy; {new Date().getFullYear()} Suno Curator Studio &mdash; {isCuratorMode ? 'Exit Management' : 'Creator Entry'}
+        </button>
+      </footer>
     </div>
   );
 };
