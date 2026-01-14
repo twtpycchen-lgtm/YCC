@@ -17,7 +17,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
   const [tracks, setTracks] = useState<Partial<Track>[]>([]);
   const [batchLinks, setBatchLinks] = useState('');
   const [directUrl, setDirectUrl] = useState('');
-  const [assetPath, setAssetPath] = useState('');
+  const [assetPaths, setAssetPaths] = useState('');
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
   const [isCleaningTitles, setIsCleaningTitles] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
@@ -25,7 +25,6 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
 
-  // 如果有傳入編輯對象，預填資料
   useEffect(() => {
     if (albumToEdit) {
       setTitle(albumToEdit.title);
@@ -76,24 +75,34 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
     }, 800);
   };
 
-  const handleAssetImport = () => {
-    if (!assetPath.trim()) return;
-    const finalPath = assetPath.startsWith('/') ? assetPath : `/${assetPath}`;
-    const fileName = assetPath.split('/').pop() || '未知資產';
-    const cleanName = fileName.replace(/\.(mp3|wav|ogg|aac|m4a)$/i, '');
-
-    const newTrack = {
-      id: `asset-${Date.now()}`,
-      title: decodeURIComponent(cleanName),
-      audioUrl: finalPath,
-      duration: '--:--',
-      genre: '專案內部資產',
-      mp3Url: finalPath,
-      wavUrl: finalPath
-    };
+  const handleAssetBatchImport = () => {
+    if (!assetPaths.trim()) return;
     
-    setTracks(prev => [...prev, newTrack]);
-    setAssetPath('');
+    const lines = assetPaths.split(/\r?\n/).filter(line => line.trim() !== '');
+    const newTracks: any[] = [];
+
+    lines.forEach((line, idx) => {
+      const path = line.trim();
+      const fileName = path.split('/').pop() || '未知資產';
+      const cleanName = fileName.replace(/\.(mp3|wav|ogg|aac|m4a)$/i, '');
+      
+      // 重要：處理中文檔名與空格，確保 URL 格式正確
+      // encodeURI 會保留 / 等符號，但轉義中文字
+      const finalUrl = path.startsWith('/') ? encodeURI(path) : `/${encodeURI(path)}`;
+
+      newTracks.push({
+        id: `asset-${Date.now()}-${idx}`,
+        title: decodeURIComponent(cleanName),
+        audioUrl: finalUrl,
+        duration: '--:--',
+        genre: '專案內部資產',
+        mp3Url: finalUrl,
+        wavUrl: finalUrl
+      });
+    });
+
+    setTracks(prev => [...prev, ...newTracks]);
+    setAssetPaths('');
   };
 
   const handleDirectUrlImport = () => {
@@ -192,7 +201,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
               {albumToEdit ? '修改典藏' : '作品典藏室'}
             </h2>
             <div className="flex flex-wrap gap-3">
-               <button type="button" onClick={() => setActiveTab('assets')} className={`text-[10px] uppercase tracking-[0.2em] px-6 py-3 rounded-full border transition-all duration-500 ${activeTab === 'assets' ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>專案資產 (部署)</button>
+               <button type="button" onClick={() => setActiveTab('assets')} className={`text-[10px] uppercase tracking-[0.2em] px-6 py-3 rounded-full border transition-all duration-500 ${activeTab === 'assets' ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>專案資產 (支援中文/批次)</button>
                <button type="button" onClick={() => setActiveTab('cloud')} className={`text-[10px] uppercase tracking-[0.2em] px-6 py-3 rounded-full border transition-all duration-500 ${activeTab === 'cloud' ? 'bg-blue-600 text-white border-blue-500 shadow-lg' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>Google Drive</button>
                <button type="button" onClick={() => setActiveTab('direct')} className={`text-[10px] uppercase tracking-[0.2em] px-6 py-3 rounded-full border transition-all duration-500 ${activeTab === 'direct' ? 'bg-purple-600 text-white border-purple-500 shadow-lg' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>串流直連</button>
                <button type="button" onClick={() => setActiveTab('local')} className={`text-[10px] uppercase tracking-[0.2em] px-6 py-3 rounded-full border transition-all duration-500 ${activeTab === 'local' ? 'bg-white text-black border-white' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>本地匯入</button>
@@ -224,11 +233,17 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
               {activeTab === 'assets' && (
                 <div className="space-y-6">
                   <div className="p-6 bg-emerald-500/10 rounded-3xl border border-emerald-500/20 mb-2">
-                    <p className="text-[10px] text-emerald-400 uppercase tracking-widest leading-relaxed font-bold">🌿 專案資產：最穩定的發佈方式</p>
+                    <p className="text-[10px] text-emerald-400 uppercase tracking-widest leading-relaxed font-bold">🌿 批次資產導入 (支援中文)</p>
+                    <p className="text-[9px] text-gray-500 mt-2 leading-relaxed">一行一個路徑。小技巧：在電腦資料夾全選檔案按「複製路徑」並貼上。</p>
                   </div>
-                  <input value={assetPath} onChange={(e) => setAssetPath(e.target.value)} placeholder="例如: songs/my-song.mp3" className="w-full bg-white/[0.02] border border-white/5 rounded-full px-10 py-5 text-xs focus:border-emerald-500 outline-none text-gray-400" />
-                  <button type="button" onClick={handleAssetImport} disabled={!assetPath} className="w-full py-6 rounded-full bg-emerald-600 text-white text-[10px] uppercase tracking-[0.4em] font-bold hover:bg-emerald-500 transition-all shadow-xl">
-                    記錄資產路徑
+                  <textarea 
+                    value={assetPaths} 
+                    onChange={(e) => setAssetPaths(e.target.value)} 
+                    placeholder="songs/第一首.mp3&#10;songs/第二首.wav" 
+                    className="w-full h-40 bg-white/[0.02] border border-white/5 rounded-[2.5rem] px-10 py-8 text-xs focus:border-emerald-500 outline-none transition-all resize-none text-gray-400 leading-relaxed scrollbar-custom" 
+                  />
+                  <button type="button" onClick={handleAssetBatchImport} disabled={!assetPaths.trim()} className="w-full py-6 rounded-full bg-emerald-600 text-white text-[10px] uppercase tracking-[0.4em] font-bold hover:bg-emerald-500 transition-all shadow-xl">
+                    批次匯入路徑
                   </button>
                 </div>
               )}
