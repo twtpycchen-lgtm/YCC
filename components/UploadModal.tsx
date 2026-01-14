@@ -29,40 +29,15 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
   }, [albumToEdit]);
 
   /**
-   * 標題淨化邏輯 (純淨模式)：
+   * 原始檔名提取：僅移除路徑與副檔名
    * 輸入：3_V1_摩天輪的告白_原始GK版_V1.mp3
-   * 輸出：摩天輪的告白
+   * 輸出：3_V1_摩天輪的告白_原始GK版_V1
    */
-  const getExtremeCleanName = (url: string) => {
+  const getRawFilename = (url: string) => {
     try {
       const decodedUrl = decodeURIComponent(url);
       const filename = decodedUrl.split('/').pop()?.split('?')[0] || "未命名";
-      let name = filename.replace(/\.[^/.]+$/, ""); 
-
-      // 1. 移除方括號與圓括號內容
-      name = name.replace(/\[.*?\]/g, '');
-      name = name.replace(/\(.*?\)/g, '');
-
-      // 2. 移除開頭的序號模式 (如 "3_", "01 - ", "1.")
-      name = name.replace(/^[0-9]+[_\s.-]+/, '');
-
-      // 3. 移除常見的版本標籤 (V1, V2, v3.2 等)
-      name = name.replace(/[vV]\d+([-._]\d+)*/g, '');
-
-      // 4. 移除常見的 Metadata 後綴
-      const metaPatterns = [
-        "原始GK版", "GK版", "原始", "正式版", "修復版", "版", 
-        "Remix", "Final", "Mix", "Master", "Demo", "Full", "Cut", 
-        "Suno", "Grok", "Udio"
-      ];
-      const metaRegex = new RegExp(`[\\s_\\-]*(${metaPatterns.join('|')})[\\s_\\-]*`, 'gi');
-      name = name.replace(metaRegex, ' ');
-
-      // 5. 轉換分隔符並壓縮空格
-      name = name.replace(/[_\-]+/g, ' ');
-      name = name.replace(/\s+/g, ' ').trim();
-      
-      return name || "未命名音軌";
+      return filename.replace(/\.[^/.]+$/, ""); 
     } catch (e) {
       return "音軌解析失敗";
     }
@@ -91,8 +66,13 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
     try {
       const trackData = tracks.map(t => ({ id: t.id || '', title: t.title || '' }));
       const optimizedTitles = await cleanTrackTitles(trackData, title);
-      // 確保 Gemini 回傳後不再被強制加上角括號
-      setTracks(prev => prev.map((t, idx) => ({ ...t, title: optimizedTitles[idx] || t.title })));
+      // 確保最終格式強制包裹角括號
+      const finalFormatted = optimizedTitles.map(t => {
+        let clean = t.trim();
+        if (clean.startsWith('<') && clean.endsWith('>')) return clean;
+        return `<${clean.replace(/[<>]/g, '')}>`;
+      });
+      setTracks(prev => prev.map((t, idx) => ({ ...t, title: finalFormatted[idx] || t.title })));
     } catch (err) {
       console.error(err);
     } finally {
@@ -107,7 +87,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
     lines.forEach((link, idx) => {
       let finalAudioUrl = link;
       let genre = '雲端串流';
-      let originalTitle = getExtremeCleanName(link); 
+      let originalTitle = getRawFilename(link); 
 
       if (link.includes('dropbox.com')) {
         genre = 'Dropbox 💎';
@@ -172,7 +152,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
               {albumToEdit ? '典藏修復' : '爵非策展'}
             </h2>
             <div className="flex gap-3">
-              <span className="px-5 py-2 rounded-full text-[10px] uppercase tracking-widest bg-white text-black font-black">極簡標題模式</span>
+              <span className="px-5 py-2 rounded-full text-xs uppercase tracking-widest bg-white text-black font-black">原始檔名模式已啟動</span>
             </div>
           </div>
           <button onClick={onClose} className="p-2 text-gray-500 hover:text-white transition-colors">
@@ -181,9 +161,10 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
         </div>
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          {/* 左側：專輯資訊 */}
           <div className="space-y-6">
             <div className="aspect-square bg-white/5 border border-white/10 rounded-3xl overflow-hidden relative group cursor-pointer shadow-inner">
-              {coverImage ? <img src={coverImage} className="w-full h-full object-cover" /> : <div className="absolute inset-0 flex items-center justify-center text-[10px] text-gray-600 uppercase tracking-[0.3em] text-center px-10">上傳藝術封面</div>}
+              {coverImage ? <img src={coverImage} className="w-full h-full object-cover" /> : <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-600 uppercase tracking-[0.3em] text-center px-10">點擊上傳封面藝術</div>}
               <input type="file" accept="image/*" onChange={(e) => {
                 if(e.target.files && e.target.files[0]) {
                   const reader = new FileReader();
@@ -205,40 +186,41 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
               <textarea 
                 value={description} 
                 onChange={(e) => setDescription(e.target.value)} 
-                placeholder="描述此段鼓點的靈魂主題..." 
-                className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-white h-24 focus:outline-none focus:border-[#d4af37]/40 resize-none transition-all" 
+                placeholder="描述此段音軌的靈魂主題..." 
+                className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-white h-24 focus:outline-none focus:border-[#d4af37]/40 resize-none transition-all text-sm" 
               />
               
               <div className="relative group">
                 <textarea 
                   value={story} 
                   onChange={(e) => setStory(e.target.value)} 
-                  placeholder="AI Session Story 將根據主題自動編撰..." 
+                  placeholder="AI Session Story..." 
                   className="w-full bg-[#d4af37]/5 border border-[#d4af37]/20 rounded-2xl p-6 text-[#d4af37]/90 text-sm italic leading-relaxed h-36 focus:outline-none focus:border-[#d4af37]/40 resize-none transition-all" 
                 />
                 <button 
                   type="button" 
                   onClick={handleGenerateStory} 
                   disabled={isGeneratingStory} 
-                  className="absolute bottom-4 right-4 px-6 py-2 bg-[#d4af37] text-black text-[9px] uppercase tracking-[0.2em] rounded-full font-black hover:scale-105 transition-all shadow-xl disabled:opacity-50"
+                  className="absolute bottom-4 right-4 px-6 py-2 bg-[#d4af37] text-black text-xs uppercase tracking-[0.2em] rounded-full font-black hover:scale-105 transition-all shadow-xl disabled:opacity-50"
                 >
-                  {isGeneratingStory ? 'AI 撰寫中...' : '✨ 生成故事'}
+                  {isGeneratingStory ? '編撰中...' : '✨ 生成故事'}
                 </button>
               </div>
             </div>
           </div>
 
+          {/* 右側：音軌導入 */}
           <div className="space-y-6">
             <div className="glass p-8 rounded-[2rem] border border-white/5">
               <div className="flex justify-between items-center mb-6">
-                <h4 className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">批次導入連結</h4>
+                <h4 className="text-xs uppercase tracking-widest text-gray-500 font-bold">批次導入音檔</h4>
                 {tracks.length > 0 && (
                   <button 
                     type="button" 
                     onClick={handleCleanTitles} 
-                    className={`text-[9px] uppercase tracking-widest font-black border px-4 py-1.5 rounded-full transition-all ${isCleaningTitles ? 'bg-white text-black' : 'text-[#d4af37] border-[#d4af37]/20 hover:bg-[#d4af37]/10'}`}
+                    className={`text-xs uppercase tracking-widest font-black border px-5 py-2 rounded-full transition-all ${isCleaningTitles ? 'bg-white text-black' : 'text-[#d4af37] border-[#d4af37]/20 hover:bg-[#d4af37]/10'}`}
                   >
-                    {isCleaningTitles ? '核心提取中...' : '✨ 標題再進化'}
+                    {isCleaningTitles ? '提取中...' : '✨ 標題優化 < >'}
                   </button>
                 )}
               </div>
@@ -247,24 +229,24 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
                 <textarea 
                   value={batchLinks} 
                   onChange={(e) => setBatchLinks(e.target.value)} 
-                  placeholder="每行一個連結。檔名將自動去噪並轉換為純標題..." 
+                  placeholder="每行一個連結。導入時將顯示原始檔名..." 
                   className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-xs font-mono text-gray-400 h-32 focus:outline-none focus:border-[#d4af37]/20 transition-all" 
                 />
                 <button 
                   type="button" 
                   onClick={handleBatchImport} 
-                  className="w-full py-4 bg-[#d4af37] hover:bg-[#b8952d] text-black rounded-xl text-[10px] uppercase tracking-widest transition-all font-black shadow-lg"
+                  className="w-full py-4 bg-[#d4af37] hover:bg-[#b8952d] text-black rounded-xl text-xs uppercase tracking-widest transition-all font-black shadow-lg"
                 >
-                  導入並自動優化標題
+                  批量導入原始音軌
                 </button>
               </div>
 
               <div className="mt-8 max-h-[220px] overflow-y-auto space-y-2 pr-2 scrollbar-custom">
                 {tracks.map((track, idx) => (
                   <div key={track.id} className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-all group">
-                    <span className="text-[10px] text-gray-600 font-mono w-4">{idx + 1}</span>
+                    <span className="text-xs text-gray-600 font-mono w-4">{idx + 1}</span>
                     <div className="flex-grow min-w-0">
-                      <p className="text-[11px] text-white truncate font-bold tracking-wider">{track.title}</p>
+                      <p className="text-sm text-white truncate font-bold tracking-wider">{track.title}</p>
                     </div>
                     <button type="button" onClick={() => setTracks(prev => prev.filter(t => t.id !== track.id))} className="text-gray-600 hover:text-red-500 transition-colors">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -276,9 +258,9 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
 
             <button 
               type="submit" 
-              className="w-full py-6 bg-white text-black font-luxury uppercase tracking-[0.4em] rounded-2xl font-bold text-xs hover:bg-[#d4af37] transition-all shadow-2xl active:scale-95"
+              className="w-full py-6 bg-white text-black font-luxury uppercase tracking-[0.4em] rounded-2xl font-bold text-sm hover:bg-[#d4af37] transition-all shadow-2xl active:scale-95"
             >
-              正式發佈典藏
+              發佈至策展典藏
             </button>
           </div>
         </form>

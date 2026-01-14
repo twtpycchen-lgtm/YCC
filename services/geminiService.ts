@@ -22,7 +22,8 @@ export const getAlbumInsights = async (albumTitle: string, description: string) 
 
 /**
  * Optimizes track titles with aggressive semantic extraction.
- * Example: "3_V1_摩天輪的告白_原始GK版_V1" -> "摩天輪的告白"
+ * Force wrapping with < >.
+ * Example: "3_V1_摩天輪的告白_原始GK版_V1" -> "<摩天輪的告白>"
  */
 export const cleanTrackTitles = async (rawTracks: {id: string, title: string}[], albumTitle: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -31,16 +32,15 @@ export const cleanTrackTitles = async (rawTracks: {id: string, title: string}[],
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: `任務：從音檔名稱中提取「核心情感標題」。
+      contents: `任務：從雜亂的音檔名稱中精準提取「核心歌名標題」。
       
-      優化規則（絕對執行）：
-      1. 移除開頭的數字序號（如 3_, 01.）。
-      2. 移除所有版本標籤（如 V1, V2, V3.2, Final, Version）。
-      3. 移除技術性後綴與 Metadata（如 原始GK版, 正式版, Remix, Mix, GK版, suno, grok）。
-      4. 僅保留最具備「歌曲靈魂」的核心文字。
-      5. **重要**：輸出的標題必須是「純文字」，不要有角括號或其他包裹符號。
-      6. 嚴格保持輸入的原始順序。
-
+      優化規則：
+      1. 移除前綴數字（如 3_, 01.）。
+      2. 移除版本與技術標籤（如 V1, V2, 原始GK版, 正式版, Remix, Mix）。
+      3. 移除副檔名或路徑資訊。
+      4. 只保留具備情感的核心文字。
+      5. **強制格式**：將最終標題用角括號包裹，例如 <摩天輪的告白>。
+      
       輸入數據：${JSON.stringify(inputData)}`,
       config: {
         responseMimeType: "application/json",
@@ -50,7 +50,7 @@ export const cleanTrackTitles = async (rawTracks: {id: string, title: string}[],
             type: Type.OBJECT,
             properties: {
               index: { type: Type.INTEGER },
-              optimizedTitle: { type: Type.STRING }
+              optimizedTitle: { type: Type.STRING, description: "必須包含 < > 的純淨標題" }
             },
             required: ["index", "optimizedTitle"]
           }
@@ -65,7 +65,11 @@ export const cleanTrackTitles = async (rawTracks: {id: string, title: string}[],
     const finalTitles = new Array(rawTracks.length);
     results.forEach(res => {
       if (res.index >= 0 && res.index < finalTitles.length) {
-        finalTitles[res.index] = res.optimizedTitle.trim();
+        let t = res.optimizedTitle.trim();
+        // 二次檢查確保格式
+        if (!t.startsWith('<')) t = '<' + t;
+        if (!t.endsWith('>')) t = t + '>';
+        finalTitles[res.index] = t;
       }
     });
 

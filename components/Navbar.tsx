@@ -37,13 +37,13 @@ const Navbar: React.FC<NavbarProps> = ({
         </div>
         
         <div className="hidden lg:flex items-center gap-12">
-          <button onClick={onHome} className="uppercase text-[9px] tracking-[0.5em] text-gray-500 hover:text-white transition-all font-bold">Archives</button>
+          <button onClick={onHome} className="uppercase text-xs tracking-[0.4em] text-gray-500 hover:text-white transition-all font-bold">Archives</button>
           
           {isCuratorMode && (
-            <div className="flex items-center gap-6 animate-fade-in pl-12 border-l border-white/5">
-              <button onClick={onUpload} className="uppercase text-[9px] tracking-[0.4em] text-white hover:text-amber-400 transition-colors font-bold">Publish</button>
-              <button onClick={onExport} className="uppercase text-[9px] tracking-[0.4em] text-white hover:text-blue-400 transition-colors font-bold">Export</button>
-              <button onClick={onImport} className="uppercase text-[9px] tracking-[0.4em] text-white hover:text-purple-400 transition-colors font-bold">Import</button>
+            <div className="flex items-center gap-8 animate-fade-in pl-12 border-l border-white/5">
+              <button onClick={onUpload} className="uppercase text-xs tracking-[0.3em] text-white hover:text-amber-400 transition-colors font-bold">Publish</button>
+              <button onClick={onExport} className="uppercase text-xs tracking-[0.3em] text-white hover:text-blue-400 transition-colors font-bold">Export</button>
+              <button onClick={onImport} className="uppercase text-xs tracking-[0.3em] text-white hover:text-purple-400 transition-colors font-bold">Import</button>
             </div>
           )}
 
@@ -54,7 +54,7 @@ const Navbar: React.FC<NavbarProps> = ({
              >
                 <div className={`w-4 h-4 rounded-full transition-all duration-700 ${isCuratorMode ? 'translate-x-6 bg-black' : 'translate-x-0 bg-white/20'}`}></div>
              </button>
-             <span className="text-[8px] uppercase tracking-[0.4em] text-gray-500 font-black">
+             <span className="text-[10px] uppercase tracking-[0.3em] text-gray-500 font-black">
                {isCuratorMode ? 'Curator' : 'Visitor'}
              </span>
           </div>
@@ -63,7 +63,7 @@ const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center">
            <button 
             onClick={onJazzToggle}
-            className={`px-10 py-3.5 rounded-full text-[9px] uppercase tracking-[0.5em] font-black transition-all relative overflow-hidden group/jazz ${
+            className={`px-10 py-3.5 rounded-full text-xs uppercase tracking-[0.4em] font-black transition-all relative overflow-hidden group/jazz ${
               isJazzMode 
               ? 'bg-indigo-600 text-white shadow-[0_0_30px_rgba(79,70,229,0.4)]' 
               : 'bg-white text-black hover:bg-[#d4af37] hover:text-white shadow-xl'
@@ -71,11 +71,8 @@ const Navbar: React.FC<NavbarProps> = ({
            >
             <span className="relative z-10 flex items-center gap-3">
               {isJazzMode && <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>}
-              沈浸 {isJazzMode ? 'ON' : 'OFF'}
+              沈浸模式 {isJazzMode ? 'ON' : 'OFF'}
             </span>
-            {isJazzMode && (
-              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-600 to-indigo-500 opacity-30 animate-pulse"></div>
-            )}
           </button>
         </div>
       </div>

@@ -157,6 +157,22 @@ const App: React.FC = () => {
     }
   };
 
+  const handleImportData = () => {
+    try {
+      const parsed = JSON.parse(importValue);
+      if (Array.isArray(parsed)) {
+        setAlbums(parsed);
+        setIsImportOpen(false);
+        setImportValue('');
+        alert("數據匯入成功！已更新典藏庫。");
+      } else {
+        alert("格式錯誤，請提供正確的專輯陣列 JSON。");
+      }
+    } catch (e) {
+      alert("解析失敗，請確認 JSON 格式是否正確。");
+    }
+  };
+
   return (
     <div className={`min-h-screen flex flex-col relative selection:bg-[#d4af37] selection:text-black transition-colors duration-[2000ms] ${isJazzMode ? 'bg-[#0a0a0c]' : 'bg-[#0d0d0f]'}`}>
       
@@ -196,7 +212,7 @@ const App: React.FC = () => {
                   {isJazzMode ? "Noir Session: 當鼓點撕開夜幕，靈魂即興而生。" : "頂級 AI 爵士樂藝術典藏與展示平台。"}
                 </p>
                 <div className="h-[1px] flex-grow bg-white/[0.03] hidden md:block"></div>
-                <div className="hidden lg:block text-[9px] uppercase tracking-[0.5em] text-white/20 whitespace-nowrap">Premium Audio Collection v3.1</div>
+                <div className="hidden lg:block text-xs uppercase tracking-[0.5em] text-white/20 whitespace-nowrap">Premium Audio Collection v3.1</div>
               </div>
             </section>
 
@@ -205,7 +221,7 @@ const App: React.FC = () => {
                 <div className="w-40 h-40 border border-white/5 rounded-full flex items-center justify-center mb-10">
                   <div className={`w-3 h-3 rounded-full animate-ping ${isJazzMode ? 'bg-indigo-400' : 'bg-[#d4af37]'}`}></div>
                 </div>
-                <p className="text-[10px] font-luxury tracking-[1.5em] uppercase text-white/30">Archives Silence</p>
+                <p className="text-xs font-luxury tracking-[1.5em] uppercase text-white/30">Archives Silence</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-24">
@@ -237,12 +253,80 @@ const App: React.FC = () => {
 
       <footer className="py-24 flex flex-col items-center opacity-20 hover:opacity-100 transition-opacity duration-[2s]">
         <div className={`w-px h-20 bg-gradient-to-b mb-10 transition-all duration-[2s] ${isJazzMode ? 'from-transparent to-indigo-500/40' : 'from-transparent to-[#d4af37]/20'}`}></div>
-        <button onClick={() => setIsCuratorMode(!isCuratorMode)} className={`text-[9px] uppercase tracking-[1em] transition-all font-light ${isJazzMode ? 'text-indigo-400' : 'text-white'}`}>
+        <button onClick={() => setIsCuratorMode(!isCuratorMode)} className={`text-xs uppercase tracking-[1em] transition-all font-light ${isJazzMode ? 'text-indigo-400' : 'text-white'}`}>
           JAZZ FEI DRUM MADNESS &mdash; EST. 2025
         </button>
       </footer>
 
+      {/* 所有的 Modal 視窗 */}
       {isUploadOpen && <UploadModal onClose={() => setIsUploadOpen(false)} onUpload={handleSaveAlbum} albumToEdit={albumToEdit} />}
+
+      {/* Export Modal */}
+      {isExportOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-xl">
+          <div className="glass w-full max-w-2xl rounded-[2.5rem] p-10 border border-white/10 shadow-2xl space-y-8 animate-fade-in-up">
+            <h2 className="text-3xl font-luxury text-white tracking-widest uppercase">數據匯出</h2>
+            <p className="text-gray-400 text-sm leading-relaxed tracking-wide font-light">
+              將下方的 JSON 複製並備份至您的 constants.ts 或個人紀錄。重新載入後即可快速恢復。
+            </p>
+            <textarea 
+              readOnly 
+              value={JSON.stringify(albums, null, 2)} 
+              className="w-full bg-black/40 border border-white/10 rounded-2xl p-6 text-xs font-mono text-gray-400 h-64 focus:outline-none" 
+            />
+            <div className="flex gap-4">
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(JSON.stringify(albums));
+                  alert("已複製至剪貼簿");
+                }} 
+                className="flex-grow py-4 bg-white text-black text-xs uppercase tracking-widest font-black rounded-xl hover:bg-[#d4af37] transition-all"
+              >
+                複製數據
+              </button>
+              <button 
+                onClick={() => setIsExportOpen(false)} 
+                className="px-8 py-4 bg-white/5 text-white text-xs uppercase tracking-widest font-bold rounded-xl hover:bg-white/10 transition-all border border-white/5"
+              >
+                關閉
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Modal */}
+      {isImportOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-xl">
+          <div className="glass w-full max-w-2xl rounded-[2.5rem] p-10 border border-white/10 shadow-2xl space-y-8 animate-fade-in-up">
+            <h2 className="text-3xl font-luxury text-white tracking-widest uppercase">數據匯入</h2>
+            <p className="text-gray-400 text-sm leading-relaxed tracking-wide font-light">
+              請貼上您之前備份的 JSON 專輯陣列數據。這將覆蓋您目前的本地存儲。
+            </p>
+            <textarea 
+              value={importValue}
+              onChange={(e) => setImportValue(e.target.value)}
+              placeholder='[ { "id": "album-...", ... } ]'
+              className="w-full bg-black/40 border border-white/10 rounded-2xl p-6 text-xs font-mono text-gray-400 h-64 focus:outline-none focus:border-[#d4af37]/40 transition-all" 
+            />
+            <div className="flex gap-4">
+              <button 
+                onClick={handleImportData}
+                className="flex-grow py-4 bg-[#d4af37] text-black text-xs uppercase tracking-widest font-black rounded-xl hover:bg-[#b8952d] transition-all shadow-lg"
+              >
+                確認匯入
+              </button>
+              <button 
+                onClick={() => { setIsImportOpen(false); setImportValue(''); }} 
+                className="px-8 py-4 bg-white/5 text-white text-xs uppercase tracking-widest font-bold rounded-xl hover:bg-white/10 transition-all border border-white/5"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AudioPlayer state={playerState} onTogglePlay={() => setPlayerState(prev => ({ ...prev, isPlaying: !prev.isPlaying }))} onProgressChange={(p) => setPlayerState(prev => ({ ...prev, progress: p }))} />
     </div>
   );
