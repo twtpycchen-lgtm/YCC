@@ -1,7 +1,8 @@
 
 export interface Track {
   id: string;
-  title: string;
+  title: string;         // 當前顯示的標題（可能是優化後的）
+  originalTitle: string; // 永久保存的原始檔名
   duration: string;
   audioUrl: string;
   wavUrl: string;
