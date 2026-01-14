@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Album, Track } from '../types';
 
@@ -6,6 +5,8 @@ interface AlbumDetailViewProps {
   album: Album;
   onBack: () => void;
   onPlayTrack: (track: Track) => void;
+  onDelete: () => void;
+  onEdit: () => void;
   currentTrackId?: string;
   isPlaying: boolean;
 }
@@ -14,20 +15,39 @@ const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   album, 
   onBack, 
   onPlayTrack, 
+  onDelete,
+  onEdit,
   currentTrackId,
   isPlaying 
 }) => {
   return (
     <div className="animate-fade-in-up">
-      <button 
-        onClick={onBack}
-        className="flex items-center gap-2 mb-10 text-gray-400 hover:text-white transition-colors uppercase text-xs tracking-widest"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        Back to Library
-      </button>
+      <div className="flex justify-between items-center mb-10">
+        <button 
+          onClick={onBack}
+          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors uppercase text-xs tracking-widest"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back to Library
+        </button>
+
+        <div className="flex gap-4">
+          <button 
+            onClick={onEdit}
+            className="px-6 py-2 rounded-full border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-all uppercase text-[10px] tracking-widest font-bold"
+          >
+            編輯專輯
+          </button>
+          <button 
+            onClick={onDelete}
+            className="px-6 py-2 rounded-full border border-red-500/20 text-red-500/50 hover:text-red-500 hover:bg-red-500/10 transition-all uppercase text-[10px] tracking-widest font-bold"
+          >
+            刪除作品
+          </button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
         <div>
@@ -89,14 +109,6 @@ const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                          </svg>
-                       </a>
-                       <a 
-                        href={track.wavUrl} 
-                        download 
-                        className="px-2 py-1 flex items-center text-[10px] font-bold border border-gray-600 text-gray-500 rounded hover:text-white hover:border-white transition-all"
-                        title="Download WAV"
-                       >
-                         WAV
                        </a>
                     </div>
                     <button 

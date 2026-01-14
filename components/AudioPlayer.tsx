@@ -31,7 +31,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
   const getStreamUrls = (id: string) => [
     `https://drive.google.com/uc?export=download&id=${id}`,
     `https://docs.google.com/uc?export=download&id=${id}`,
-    `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`
+    `https://drive.google.com/u/0/uc?export=download&id=${id}`
   ];
 
   useEffect(() => {
@@ -44,21 +44,20 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
 
     const id = getDriveId(state.currentTrack.audioUrl);
     
-    // 解決 CORS 封鎖的核心：移除跨域請求標頭
+    // V15 關鍵：徹底清除可能觸發 CORS 的屬性
+    audio.removeAttribute('crossOrigin');
+    
     if (id) {
-      audio.setAttribute('referrerpolicy', 'no-referrer');
-      // 確保這裡沒有 crossOrigin 屬性影響雲端檔案
       const urls = getStreamUrls(id);
       audio.src = urls[0];
     } else {
-      audio.removeAttribute('referrerpolicy');
       audio.src = state.currentTrack.audioUrl;
     }
     
     audio.load();
     if (state.isPlaying) {
       audio.play().catch(e => {
-        console.warn("[V14] 播放受限 (通常為瀏覽器政策)，請手動點擊撥放鈕。");
+        console.warn("[V15] 自動播放受阻，等待點擊：", e);
       });
     }
   }, [state.currentTrack?.id]);
@@ -77,9 +76,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
     if (!audioRef.current || !state.currentTrack) return;
     
     const trackUrl = state.currentTrack.audioUrl;
-
     if (trackUrl.startsWith('blob:')) {
-      setError("本地暫存失效。請重新匯入檔案（重新整理頁面會清空本地快取）。");
+      setError("本地暫存失效。");
       setIsBuffering(false);
       return;
     }
@@ -90,7 +88,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
       if (retryCount < urls.length - 1) {
         const nextRetry = retryCount + 1;
         setRetryCount(nextRetry);
-        console.warn(`[V14] 通道 ${retryCount} 遭阻斷，嘗試備用通道 ${nextRetry}`);
+        console.warn(`[V15] 切換備用通道 ${nextRetry}`);
         audioRef.current.src = urls[nextRetry];
         audioRef.current.load();
         audioRef.current.play().catch(() => {});
@@ -98,7 +96,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
       }
     }
     
-    setError("音訊加載失敗。請點擊按鈕手動喚醒 Google 授權。");
+    setError("403 Forbidden: Google 已阻斷串流。");
     setIsBuffering(false);
   };
 
@@ -107,7 +105,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
     const id = getDriveId(state.currentTrack.audioUrl);
     if (!id) return;
     window.open(`https://drive.google.com/file/d/${id}/view`, '_blank');
-    alert("已打開 Google 播放頁面。請確認在那邊能播放後，回到本站再次點擊「播放」。這能將您的登入資訊同步給瀏覽器。");
+    alert("請在開啟的分頁確保能看到播放器並能播放（證明授權 Cookie 已寫入），然後回到這裡再次點擊「播放」。");
   };
 
   const handleTimeUpdate = () => {
@@ -127,7 +125,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
 
   return (
     <div className="fixed bottom-6 left-6 right-6 z-[60] glass rounded-3xl p-4 md:p-6 shadow-2xl border border-white/5 animate-fade-in-up">
-      {/* 重要：不在此標籤上設定 crossOrigin 屬性，這會導致 Google Drive 報 CORS 錯誤 */}
       <audio 
         ref={audioRef} 
         onTimeUpdate={handleTimeUpdate}
@@ -136,7 +133,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
         onWaiting={() => setIsBuffering(true)}
         onCanPlay={() => { setError(null); setIsBuffering(false); }}
         onPlaying={() => setIsBuffering(false)}
-        preload="auto"
+        preload="metadata"
       />
       
       <div className="flex flex-col md:flex-row items-center gap-6">
@@ -154,16 +151,16 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
             <div className="flex items-center gap-2">
               {error ? (
                 <button onClick={openAuthRepair} className="text-[10px] bg-red-600 text-white px-3 py-1 rounded-full font-bold animate-pulse shadow-lg hover:bg-red-500 transition-all">
-                  點擊修復 403 封鎖
+                  點擊修復 403 阻斷
                 </button>
               ) : isBuffering ? (
                 <span className="text-[9px] text-blue-400 font-bold uppercase tracking-widest animate-pulse">
-                  建立數據隧道...
+                  解析數據流...
                 </span>
               ) : (
                 <span className="text-[9px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
                   <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping"></div>
-                  數據傳輸已就緒
+                  串流穩定
                 </span>
               )}
             </div>

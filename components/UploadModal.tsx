@@ -1,20 +1,23 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Album, Track } from '../types';
 import { getAlbumInsights, cleanTrackTitles } from '../services/geminiService';
 
 interface UploadModalProps {
   onClose: () => void;
   onUpload: (album: Album) => void;
+  albumToEdit?: Album;
 }
 
-const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload }) => {
-  const [activeTab, setActiveTab] = useState<'local' | 'cloud'>('local');
+const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdit }) => {
+  const [activeTab, setActiveTab] = useState<'local' | 'cloud' | 'direct' | 'assets'>('assets');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [story, setStory] = useState('');
   const [coverImage, setCoverImage] = useState<string>('');
   const [tracks, setTracks] = useState<Partial<Track>[]>([]);
   const [batchLinks, setBatchLinks] = useState('');
+  const [directUrl, setDirectUrl] = useState('');
+  const [assetPath, setAssetPath] = useState('');
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
   const [isCleaningTitles, setIsCleaningTitles] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
@@ -22,8 +25,18 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
 
+  // 如果有傳入編輯對象，預填資料
+  useEffect(() => {
+    if (albumToEdit) {
+      setTitle(albumToEdit.title);
+      setDescription(albumToEdit.description);
+      setStory(albumToEdit.story);
+      setCoverImage(albumToEdit.coverImage);
+      setTracks(albumToEdit.tracks);
+    }
+  }, [albumToEdit]);
+
   const parseDriveLinks = (text: string) => {
-    // 支援格式: /file/d/ID/view, /id=ID, /d/ID
     const driveIdPattern = /[-\w]{25,50}/g;
     const results: any[] = [];
     const seenIds = new Set<string>();
@@ -38,9 +51,9 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload }) => {
       results.push({
         id: `drive-${id}-${Date.now()}`,
         title: `雲端音軌 ${id.substring(0, 4)}`,
-        audioUrl: `https://drive.google.com/uc?id=${id}&export=download`, // 基礎網址，由 AudioPlayer 做 V12 穿透處理
+        audioUrl: `https://drive.google.com/uc?id=${id}&export=download`,
         duration: '--:--',
-        genre: '雲端串流',
+        genre: 'Google Drive 雲端',
         mp3Url: `https://drive.google.com/file/d/${id}/view`,
         wavUrl: `https://drive.google.com/file/d/${id}/view`
       });
@@ -61,6 +74,45 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload }) => {
       }
       setIsParsing(false);
     }, 800);
+  };
+
+  const handleAssetImport = () => {
+    if (!assetPath.trim()) return;
+    const finalPath = assetPath.startsWith('/') ? assetPath : `/${assetPath}`;
+    const fileName = assetPath.split('/').pop() || '未知資產';
+    const cleanName = fileName.replace(/\.(mp3|wav|ogg|aac|m4a)$/i, '');
+
+    const newTrack = {
+      id: `asset-${Date.now()}`,
+      title: decodeURIComponent(cleanName),
+      audioUrl: finalPath,
+      duration: '--:--',
+      genre: '專案內部資產',
+      mp3Url: finalPath,
+      wavUrl: finalPath
+    };
+    
+    setTracks(prev => [...prev, newTrack]);
+    setAssetPath('');
+  };
+
+  const handleDirectUrlImport = () => {
+    if (!directUrl.trim()) return;
+    const fileName = directUrl.split('/').pop()?.split('?')[0] || '未知音軌';
+    const cleanName = fileName.replace(/\.(mp3|wav|ogg|aac|m4a)$/i, '');
+    
+    const newTrack = {
+      id: `url-${Date.now()}`,
+      title: decodeURIComponent(cleanName),
+      audioUrl: directUrl,
+      duration: '--:--',
+      genre: '外部串流直連',
+      mp3Url: directUrl,
+      wavUrl: directUrl
+    };
+    
+    setTracks(prev => [...prev, newTrack]);
+    setDirectUrl('');
   };
 
   const handleAICleanTitles = async () => {
@@ -98,9 +150,9 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload }) => {
       const newTracks = Array.from(e.target.files).map((file: File, idx) => ({
         id: `local-${Date.now()}-${idx}`,
         title: file.name.replace(/\.[^/.]+$/, ""),
-        audioUrl: URL.createObjectURL(file), // 本地連結
+        audioUrl: URL.createObjectURL(file),
         duration: '--:--',
-        genre: '錄音室音軌',
+        genre: '臨時本地預覽',
         mp3Url: '#',
         wavUrl: '#'
       }));
@@ -120,12 +172,12 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload }) => {
     e.preventDefault();
     if (!title || !coverImage || tracks.length === 0) return;
     const newAlbum: Album = {
-      id: `album-${Date.now()}`,
+      id: albumToEdit ? albumToEdit.id : `album-${Date.now()}`,
       title,
       description,
       story,
       coverImage,
-      releaseDate: new Date().toLocaleDateString('zh-TW'),
+      releaseDate: albumToEdit ? albumToEdit.releaseDate : new Date().toLocaleDateString('zh-TW'),
       tracks: tracks as Track[]
     };
     onUpload(newAlbum);
@@ -136,10 +188,14 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload }) => {
       <div className="glass w-full max-w-6xl max-h-[92vh] overflow-y-auto rounded-[4rem] p-10 md:p-16 shadow-[0_0_150px_rgba(0,0,0,0.8)] animate-fade-in-up border border-white/10 relative">
         <div className="flex justify-between items-start mb-16">
           <div className="space-y-4">
-            <h2 className="text-6xl font-luxury tracking-[0.2em] uppercase text-white leading-tight">作品典藏室</h2>
-            <div className="flex gap-4">
-               <button type="button" onClick={() => setActiveTab('local')} className={`text-[10px] uppercase tracking-[0.4em] px-10 py-4 rounded-full border transition-all duration-700 ${activeTab === 'local' ? 'bg-white text-black border-white' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>本地匯入</button>
-               <button type="button" onClick={() => setActiveTab('cloud')} className={`text-[10px] uppercase tracking-[0.4em] px-10 py-4 rounded-full border transition-all duration-700 ${activeTab === 'cloud' ? 'bg-blue-600 text-white border-blue-500 shadow-lg' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>雲端同步 (Drive)</button>
+            <h2 className="text-6xl font-luxury tracking-[0.2em] uppercase text-white leading-tight">
+              {albumToEdit ? '修改典藏' : '作品典藏室'}
+            </h2>
+            <div className="flex flex-wrap gap-3">
+               <button type="button" onClick={() => setActiveTab('assets')} className={`text-[10px] uppercase tracking-[0.2em] px-6 py-3 rounded-full border transition-all duration-500 ${activeTab === 'assets' ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>專案資產 (部署)</button>
+               <button type="button" onClick={() => setActiveTab('cloud')} className={`text-[10px] uppercase tracking-[0.2em] px-6 py-3 rounded-full border transition-all duration-500 ${activeTab === 'cloud' ? 'bg-blue-600 text-white border-blue-500 shadow-lg' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>Google Drive</button>
+               <button type="button" onClick={() => setActiveTab('direct')} className={`text-[10px] uppercase tracking-[0.2em] px-6 py-3 rounded-full border transition-all duration-500 ${activeTab === 'direct' ? 'bg-purple-600 text-white border-purple-500 shadow-lg' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>串流直連</button>
+               <button type="button" onClick={() => setActiveTab('local')} className={`text-[10px] uppercase tracking-[0.2em] px-6 py-3 rounded-full border transition-all duration-500 ${activeTab === 'local' ? 'bg-white text-black border-white' : 'text-gray-500 border-white/5 hover:border-white/20'}`}>本地匯入</button>
             </div>
           </div>
           <button onClick={onClose} className="p-6 text-gray-700 hover:text-white transition-all bg-white/5 rounded-full hover:rotate-90 duration-500">
@@ -165,50 +221,69 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload }) => {
                 )}
               </div>
               
-              {activeTab === 'local' ? (
+              {activeTab === 'assets' && (
                 <div className="space-y-6">
-                  <div className="p-6 bg-amber-500/10 rounded-3xl border border-amber-500/20 mb-2">
-                    <p className="text-[10px] text-amber-500 uppercase tracking-widest leading-relaxed font-bold">
-                      ⚠️ 本地匯入說明：
-                    </p>
-                    <p className="text-[9px] text-gray-400 mt-2 leading-relaxed">
-                      檔案僅暫存於您的瀏覽器記憶體中。刷新網頁後檔案會消失，且他人無法透過連結聽到您的音樂。
-                    </p>
+                  <div className="p-6 bg-emerald-500/10 rounded-3xl border border-emerald-500/20 mb-2">
+                    <p className="text-[10px] text-emerald-400 uppercase tracking-widest leading-relaxed font-bold">🌿 專案資產：最穩定的發佈方式</p>
                   </div>
-                  <div onClick={() => audioInputRef.current?.click()} className="p-16 rounded-[3rem] glass border border-dashed border-white/10 text-center group cursor-pointer hover:border-white/30 transition-all">
-                    <span className="text-[10px] uppercase tracking-[0.4em] text-blue-400 font-bold">選擇音訊檔案</span>
-                    <input type="file" ref={audioInputRef} onChange={handleAudioFiles} className="hidden" accept="audio/*" multiple />
-                  </div>
+                  <input value={assetPath} onChange={(e) => setAssetPath(e.target.value)} placeholder="例如: songs/my-song.mp3" className="w-full bg-white/[0.02] border border-white/5 rounded-full px-10 py-5 text-xs focus:border-emerald-500 outline-none text-gray-400" />
+                  <button type="button" onClick={handleAssetImport} disabled={!assetPath} className="w-full py-6 rounded-full bg-emerald-600 text-white text-[10px] uppercase tracking-[0.4em] font-bold hover:bg-emerald-500 transition-all shadow-xl">
+                    記錄資產路徑
+                  </button>
                 </div>
-              ) : (
+              )}
+
+              {activeTab === 'cloud' && (
                 <div className="space-y-6">
                   <div className="p-6 bg-blue-500/10 rounded-3xl border border-blue-500/20 mb-2">
-                    <p className="text-[10px] text-blue-400 uppercase tracking-widest leading-relaxed font-bold">
-                      🚀 雲端同步說明：
-                    </p>
-                    <p className="text-[9px] text-gray-400 mt-2 leading-relaxed">
-                      使用 Google Drive 連結可實現永久發佈。我們採用 V12 穿透技術自動繞過 Google 的安全警告頁面。
-                    </p>
+                    <p className="text-[10px] text-blue-400 uppercase tracking-widest leading-relaxed font-bold">🚀 雲端同步：Google Drive 模式</p>
                   </div>
-                  <textarea value={batchLinks} onChange={(e) => setBatchLinks(e.target.value)} placeholder="在此貼上 Google Drive 檔案連結..." className="w-full h-48 bg-white/[0.02] border border-white/5 rounded-[2.5rem] px-10 py-10 text-xs focus:border-blue-500 outline-none transition-all resize-none shadow-inner text-gray-400 leading-relaxed" />
+                  <textarea value={batchLinks} onChange={(e) => setBatchLinks(e.target.value)} placeholder="貼上 Google Drive 分享連結..." className="w-full h-32 bg-white/[0.02] border border-white/5 rounded-[2.5rem] px-10 py-8 text-xs focus:border-blue-500 outline-none transition-all resize-none text-gray-400 leading-relaxed" />
                   <button type="button" onClick={handleBatchImport} disabled={isParsing || !batchLinks} className={`w-full py-6 rounded-[2rem] text-[10px] uppercase tracking-[0.4em] font-bold transition-all ${isParsing ? 'bg-gray-900 text-gray-700' : 'bg-white text-black hover:bg-gray-100 shadow-2xl'}`}>
-                    {isParsing ? '解析 ID 中...' : '同步雲端音軌'}
+                    {isParsing ? '解析中...' : '同步雲端連結'}
                   </button>
+                </div>
+              )}
+
+              {activeTab === 'direct' && (
+                <div className="space-y-6">
+                  <div className="p-6 bg-purple-500/10 rounded-3xl border border-purple-500/20 mb-2">
+                    <p className="text-[10px] text-purple-400 uppercase tracking-widest leading-relaxed font-bold">💎 專業模式：MP3/WAV 直連網址</p>
+                  </div>
+                  <input value={directUrl} onChange={(e) => setDirectUrl(e.target.value)} placeholder="https://cdn.com/song.mp3" className="w-full bg-white/[0.02] border border-white/5 rounded-full px-10 py-5 text-xs focus:border-purple-500 outline-none text-gray-400" />
+                  <button type="button" onClick={handleDirectUrlImport} disabled={!directUrl} className="w-full py-6 rounded-full bg-purple-600 text-white text-[10px] uppercase tracking-[0.4em] font-bold hover:bg-purple-500 transition-all shadow-xl">
+                    加入直連音軌
+                  </button>
+                </div>
+              )}
+
+              {activeTab === 'local' && (
+                <div className="space-y-6">
+                  <div className="p-6 bg-amber-500/10 rounded-3xl border border-amber-500/20 mb-2">
+                    <p className="text-[10px] text-amber-500 uppercase tracking-widest leading-relaxed font-bold">⚠️ 本地匯入：刷新即消失</p>
+                  </div>
+                  <div onClick={() => audioInputRef.current?.click()} className="p-16 rounded-[3rem] glass border border-dashed border-white/10 text-center group cursor-pointer hover:border-white/30 transition-all">
+                    <span className="text-[10px] uppercase tracking-[0.4em] text-blue-400 font-bold">選擇音訊檔案預覽</span>
+                    <input type="file" ref={audioInputRef} onChange={handleAudioFiles} className="hidden" accept="audio/*" multiple />
+                  </div>
                 </div>
               )}
 
               <div className="max-h-[400px] overflow-y-auto space-y-4 pr-4 scrollbar-custom">
                 {tracks.map((t, i) => (
-                  <div key={t.id} className="flex justify-between items-center p-8 glass rounded-[2.5rem] border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-all group">
-                    <div className="flex flex-col flex-grow truncate mr-6">
-                      <input className="bg-transparent border-none outline-none font-luxury text-base tracking-[0.15em] text-white w-full" value={t.title} onChange={(e) => {
+                  <div key={t.id} className="flex justify-between items-center p-6 glass rounded-[2.5rem] border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-all group">
+                    <div className="flex flex-col flex-grow truncate mr-4">
+                      <input className="bg-transparent border-none outline-none font-luxury text-sm tracking-wide text-white w-full" value={t.title} onChange={(e) => {
                         const newTracks = [...tracks];
                         newTracks[i].title = e.target.value;
                         setTracks(newTracks);
                       }} />
-                      <span className="text-[9px] uppercase tracking-widest text-gray-600 mt-2">{t.audioUrl?.startsWith('blob:') ? '本地快取' : '雲端同步'} · Track #{i + 1}</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`w-2 h-2 rounded-full ${t.audioUrl?.startsWith('blob:') ? 'bg-amber-500' : t.id?.startsWith('asset') ? 'bg-emerald-500' : t.id?.startsWith('drive') ? 'bg-blue-500' : 'bg-purple-500'}`}></span>
+                        <span className="text-[8px] uppercase tracking-widest text-gray-600">{t.genre} · Track #{i + 1}</span>
+                      </div>
                     </div>
-                    <button type="button" onClick={() => setTracks(tracks.filter((_, idx) => idx !== i))} className="text-gray-800 hover:text-red-500/60 transition-colors p-2"><svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19V4M6,19A2,2 0 008,21H16A2,2 0 0018,19V7H6V19Z" /></svg></button>
+                    <button type="button" onClick={() => setTracks(tracks.filter((_, idx) => idx !== i))} className="text-gray-800 hover:text-red-500/60 transition-colors p-2"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19V4M6,19A2,2 0 008,21H16A2,2 0 0018,19V7H6V19Z" /></svg></button>
                   </div>
                 ))}
               </div>
@@ -222,18 +297,14 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload }) => {
             </div>
             <div>
               <label className="block text-[10px] uppercase tracking-[0.6em] text-gray-600 font-bold mb-6">藝術氛圍描述</label>
-              <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="例如：在賽博龐克城市的雨夜中，一段關於自我意識覺醒的冥想..." className="w-full bg-white/[0.02] border border-white/5 rounded-[2rem] px-12 py-10 text-sm italic text-gray-400 focus:border-white/20 outline-none" />
+              <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="一段關於作品靈魂的簡短描述..." className="w-full bg-white/[0.02] border border-white/5 rounded-[2rem] px-12 py-10 text-sm italic text-gray-400 focus:border-white/20 outline-none" />
             </div>
             <div className="relative group">
-              <div className="absolute -top-12 left-0 flex items-center gap-3">
-                 <label className="text-[10px] uppercase tracking-[0.6em] text-gray-600 font-bold">作品敘事</label>
-                 {title && <span className="w-1 h-1 rounded-full bg-blue-500 animate-pulse"></span>}
-              </div>
-              <button type="button" onClick={handleEnhanceStory} disabled={isGeneratingStory || !title} className="absolute right-0 top-[-55px] text-[10px] bg-white/5 hover:bg-white text-gray-500 hover:text-black px-8 py-3 rounded-full transition-all uppercase font-bold tracking-[0.3em] border border-white/5 shadow-lg active:scale-95">{isGeneratingStory ? '正在編織故事...' : '✨ 生成中文敘事'}</button>
-              <textarea value={story} onChange={(e) => setStory(e.target.value)} rows={12} className="w-full bg-white/[0.01] border border-white/5 rounded-[3.5rem] px-14 py-14 focus:border-white/10 transition-all outline-none text-xl italic leading-[1.8] text-gray-400 font-light scrollbar-custom" placeholder="點擊按鈕，讓 AI 為您的音樂宇宙編寫一段專屬的繁體中文故事..." />
+              <button type="button" onClick={handleEnhanceStory} disabled={isGeneratingStory || !title} className="absolute right-0 top-[-55px] text-[10px] bg-white/5 hover:bg-white text-gray-500 hover:text-black px-8 py-3 rounded-full transition-all uppercase font-bold tracking-[0.3em] border border-white/5 active:scale-95">{isGeneratingStory ? '編織故事中...' : '✨ 生成中文敘事'}</button>
+              <textarea value={story} onChange={(e) => setStory(e.target.value)} rows={10} className="w-full bg-white/[0.01] border border-white/5 rounded-[3.5rem] px-14 py-14 focus:border-white/10 transition-all outline-none text-xl italic leading-[1.8] text-gray-400 font-light scrollbar-custom" placeholder="讓 AI 為您的音樂宇宙編寫一段專屬故事..." />
             </div>
             <button type="submit" disabled={!title || !coverImage || tracks.length === 0} className="w-full py-12 bg-white text-black rounded-[3rem] font-luxury text-3xl uppercase tracking-[0.8em] hover:bg-gray-100 transition-all shadow-[0_20px_60px_rgba(255,255,255,0.1)] active:scale-[0.98] disabled:opacity-10 group relative overflow-hidden">
-               <span className="relative z-10">正式發佈</span>
+               <span className="relative z-10">{albumToEdit ? '確認修改' : '正式發佈'}</span>
                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
             </button>
           </div>
