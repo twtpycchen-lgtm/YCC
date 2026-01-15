@@ -15,9 +15,11 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
   const [coverImage, setCoverImage] = useState<string>('');
   const [tracks, setTracks] = useState<Partial<Track>[]>([]);
   const [batchLinks, setBatchLinks] = useState('');
+  const [batchNames, setBatchNames] = useState('');
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
   const [isCleaningTitles, setIsCleaningTitles] = useState(false);
   const [viewMode, setViewMode] = useState<'raw' | 'optimized'>('optimized');
+  const [batchTab, setBatchTab] = useState<'links' | 'names'>('links');
 
   useEffect(() => {
     if (albumToEdit) {
@@ -79,6 +81,21 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
 
     setTracks(prev => [...prev, ...results]);
     setBatchLinks('');
+  };
+
+  const handleBatchNamesImport = () => {
+    if (tracks.length === 0) return alert("請先匯入音軌連結");
+    const nameLines = batchNames.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+    if (nameLines.length === 0) return;
+
+    setTracks(prev => prev.map((track, idx) => {
+      if (nameLines[idx]) {
+        return { ...track, remarks: nameLines[idx] };
+      }
+      return track;
+    }));
+    setBatchNames('');
+    alert(`已分配 ${nameLines.length} 個曲名`);
   };
 
   const handleCleanTitles = async () => {
@@ -146,31 +163,74 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
 
           <div className="space-y-8 flex flex-col h-full">
             <div className="glass p-6 rounded-[2rem] border border-white/5 flex-grow overflow-hidden flex flex-col">
-              <textarea value={batchLinks} onChange={(e) => setBatchLinks(e.target.value)} placeholder="批次導入連結..." className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-[10px] font-mono text-gray-500 h-28 mb-4 shrink-0" />
-              <button type="button" onClick={handleBatchImport} className="w-full py-4 bg-white text-black rounded-xl text-xs uppercase font-black shrink-0 mb-6">導入音軌</button>
+              {/* Batch Import Area with Tabs */}
+              <div className="flex gap-4 mb-4 border-b border-white/5 pb-2">
+                <button 
+                  type="button" 
+                  onClick={() => setBatchTab('links')} 
+                  className={`text-[10px] uppercase tracking-widest font-black transition-all ${batchTab === 'links' ? 'text-[#d4af37]' : 'text-gray-600'}`}
+                >
+                  匯入連結
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setBatchTab('names')} 
+                  className={`text-[10px] uppercase tracking-widest font-black transition-all ${batchTab === 'names' ? 'text-[#d4af37]' : 'text-gray-600'}`}
+                >
+                  匯入歌名
+                </button>
+              </div>
+
+              {batchTab === 'links' ? (
+                <>
+                  <textarea 
+                    value={batchLinks} 
+                    onChange={(e) => setBatchLinks(e.target.value)} 
+                    placeholder="每行一個音軌連結 (Dropbox/Drive)..." 
+                    className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-[10px] font-mono text-gray-500 h-28 mb-4 shrink-0 focus:border-[#d4af37]/40 outline-none" 
+                  />
+                  <button type="button" onClick={handleBatchImport} className="w-full py-4 bg-white text-black rounded-xl text-xs uppercase font-black shrink-0 mb-6 hover:bg-[#d4af37] transition-all">導入音軌連結</button>
+                </>
+              ) : (
+                <>
+                  <textarea 
+                    value={batchNames} 
+                    onChange={(e) => setBatchNames(e.target.value)} 
+                    placeholder="每行一個歌曲名稱，將按順序分配給音軌..." 
+                    className="w-full bg-black/40 border border-[#d4af37]/10 rounded-xl p-4 text-[10px] font-mono text-[#d4af37]/60 h-28 mb-4 shrink-0 focus:border-[#d4af37]/40 outline-none" 
+                  />
+                  <button type="button" onClick={handleBatchNamesImport} className="w-full py-4 bg-[#d4af37] text-black rounded-xl text-xs uppercase font-black shrink-0 mb-6 hover:bg-[#d4af37]/80 transition-all">依序分配歌名</button>
+                </>
+              )}
               
               <div className="flex-grow overflow-y-auto space-y-3 pr-2 scrollbar-custom">
+                <div className="flex items-center justify-between mb-2">
+                   <span className="text-[8px] uppercase tracking-[0.3em] text-gray-600 font-black">當前音軌清單 ({tracks.length})</span>
+                   <button type="button" onClick={handleCleanTitles} disabled={isCleaningTitles} className="text-[8px] uppercase tracking-[0.2em] text-[#d4af37] hover:underline">
+                     {isCleaningTitles ? '優化中...' : '✨ AI 標題優化'}
+                   </button>
+                </div>
                 {tracks.map((track, idx) => (
-                  <div key={track.id} className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-3">
+                  <div key={track.id} className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-3 transition-all hover:border-white/10">
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] text-gray-700 font-mono w-4">{idx + 1}</span>
                       <div className="flex-grow min-w-0">
                         <p className="text-xs text-white truncate font-bold uppercase tracking-wider">{viewMode === 'raw' ? track.originalTitle : (track.title || track.originalTitle)}</p>
                       </div>
-                      <button type="button" onClick={() => setTracks(prev => prev.filter(t => t.id !== track.id))} className="text-gray-700 hover:text-red-500 text-lg">×</button>
+                      <button type="button" onClick={() => setTracks(prev => prev.filter(t => t.id !== track.id))} className="text-gray-700 hover:text-red-500 text-lg transition-colors">×</button>
                     </div>
                     <input 
                       type="text" 
                       value={track.remarks || ''} 
                       onChange={(e) => updateTrackRemarks(track.id!, e.target.value)} 
-                      placeholder="輸入人工歌名 (Human Name)"
-                      className="w-full bg-black/30 border border-white/5 rounded-lg p-2.5 text-xs text-[#d4af37] font-luxury tracking-widest uppercase focus:border-[#d4af37]/30"
+                      placeholder="人工歌名 (Remarks)"
+                      className="w-full bg-black/30 border border-white/5 rounded-lg p-2.5 text-xs text-[#d4af37] font-luxury tracking-widest uppercase focus:border-[#d4af37]/30 outline-none"
                     />
                   </div>
                 ))}
               </div>
             </div>
-            <button type="submit" className="w-full py-6 bg-[#d4af37] text-black font-luxury uppercase tracking-[0.4em] rounded-[2rem] font-bold text-base shadow-2xl">正式發佈</button>
+            <button type="submit" className="w-full py-6 bg-[#d4af37] text-black font-luxury uppercase tracking-[0.4em] rounded-[2rem] font-bold text-base shadow-2xl hover:scale-[1.02] transition-all active:scale-95">正式發佈典藏</button>
           </div>
         </form>
       </div>
