@@ -102,7 +102,12 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
     if (tracks.length === 0) return;
     setIsCleaningTitles(true);
     try {
-      const trackData = tracks.map(t => ({ id: t.id || '', title: t.originalTitle || t.title || '' }));
+      // 關鍵：將目前的 remarks 傳給 AI 作為優化依據
+      const trackData = tracks.map(t => ({ 
+        id: t.id || '', 
+        title: t.originalTitle || t.title || '',
+        remarks: t.remarks || '' 
+      }));
       const optimized = await cleanTrackTitles(trackData, title, description);
       setTracks(prev => prev.map((t, i) => ({ ...t, title: optimized[i] || t.title })));
       setViewMode('optimized');
@@ -163,7 +168,6 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
 
           <div className="space-y-8 flex flex-col h-full">
             <div className="glass p-6 rounded-[2rem] border border-white/5 flex-grow overflow-hidden flex flex-col">
-              {/* Batch Import Area with Tabs */}
               <div className="flex gap-4 mb-4 border-b border-white/5 pb-2">
                 <button 
                   type="button" 

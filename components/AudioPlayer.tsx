@@ -6,9 +6,10 @@ interface AudioPlayerProps {
   onTogglePlay: () => void;
   onProgressChange: (progress: number) => void;
   onRemove: () => void;
+  onEnded?: () => void;
 }
 
-const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgressChange, onRemove }) => {
+const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgressChange, onRemove, onEnded }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [volume, setVolume] = useState(0.8);
   const [isBuffering, setIsBuffering] = useState(false);
@@ -46,6 +47,14 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handleEnded = () => {
+    if (onEnded) {
+      onEnded();
+    } else if (state.isPlaying) {
+      onTogglePlay();
+    }
+  };
+
   if (!state.currentTrack) return null;
 
   return (
@@ -66,7 +75,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
             onProgressChange((audioRef.current.currentTime / audioRef.current.duration) * 100);
           }
         }}
-        onEnded={() => { if (state.isPlaying) onTogglePlay(); }}
+        onEnded={handleEnded}
         onWaiting={() => setIsBuffering(true)}
         onCanPlay={() => setIsBuffering(false)}
         onPlaying={() => setIsBuffering(false)}
@@ -108,7 +117,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
             </button>
             <button 
               onClick={onTogglePlay} 
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${state.isPlaying ? 'bg-white text-black' : 'bg-[#d4af37] text-black shadow-lg shadow-[#d4af37]/10'}`}
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${state.isPlaying ? 'bg-white text-black' : 'bg-[#d4af37]'}`}
             >
               {state.isPlaying ? (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>

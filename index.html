@@ -11,10 +11,11 @@
     <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     <style>
         :root {
-            --bg-deep: #08080a;
+            --bg-deep: #050507;
             --accent-gold: #d4af37;
-            --gold-glow: rgba(212, 175, 55, 0.15);
-            --noir-blue: #1a1b26;
+            --light-gold: #f9f1d0;
+            --dark-gold: #aa8d2e;
+            --gold-glow: rgba(212, 175, 55, 0.2);
         }
         
         body {
@@ -28,7 +29,7 @@
 
         h1, h2, h3, .font-luxury { 
             font-family: 'Cinzel', serif; 
-            letter-spacing: 0.25em;
+            letter-spacing: 0.2em;
             text-transform: uppercase;
         }
 
@@ -37,11 +38,10 @@
             top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none;
             z-index: 9999;
-            opacity: 0.05;
+            opacity: 0.04;
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 250 250' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
         }
 
-        /* 高級感動態背景：模擬黑暗中流動的煙霧與金屬光澤 */
         .mesh-bg {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -54,66 +54,100 @@
             position: absolute;
             width: 80vmax;
             height: 80vmax;
-            filter: blur(80px);
-            opacity: 0.15;
+            filter: blur(100px);
+            opacity: 0.12;
             border-radius: 50%;
-            animation: blob-float 40s infinite alternate ease-in-out;
+            animation: blob-float 45s infinite alternate ease-in-out;
         }
 
-        .blob-1 { background: radial-gradient(circle, #1e293b 0%, transparent 70%); top: -20%; left: -20%; }
-        .blob-2 { background: radial-gradient(circle, #2e1065 0%, transparent 70%); bottom: -10%; right: -10%; animation-delay: -10s; }
-        .blob-3 { background: radial-gradient(circle, #422006 0%, transparent 70%); top: 40%; left: 30%; opacity: 0.08; animation-delay: -20s; }
+        .blob-1 { background: radial-gradient(circle, #1a1b3b 0%, transparent 70%); top: -20%; left: -20%; }
+        .blob-2 { background: radial-gradient(circle, #2e1065 0%, transparent 70%); bottom: -10%; right: -10%; animation-delay: -15s; }
+        .blob-3 { background: radial-gradient(circle, #422006 0%, transparent 70%); top: 40%; left: 30%; opacity: 0.05; animation-delay: -25s; }
 
         @keyframes blob-float {
             0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-            100% { transform: translate(5%, 10%) scale(1.1) rotate(15deg); }
+            100% { transform: translate(10%, 15%) scale(1.1) rotate(20deg); }
         }
 
         .glass {
             background: rgba(255, 255, 255, 0.01);
-            backdrop-filter: blur(40px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.04);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(50px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
         }
 
-        .text-glow { 
-            text-shadow: 0 0 40px var(--gold-glow); 
-        }
-
-        .gold-border {
-            border: 1px solid rgba(212, 175, 55, 0.2);
-        }
-
-        .outline-text {
-            -webkit-text-stroke: 1px rgba(255,255,255,0.08);
+        .luxury-gold-text {
+            background: linear-gradient(
+                to bottom,
+                var(--light-gold) 0%,
+                var(--accent-gold) 50%,
+                var(--dark-gold) 100%
+            );
+            -webkit-background-clip: text;
+            background-clip: text;
             color: transparent;
-            transition: all 1s ease;
+            filter: drop-shadow(0 0 20px var(--gold-glow));
+            display: inline-block;
+            position: relative;
+            padding: 0.05em 0.15em; 
+            margin: -0.05em -0.15em;
+            overflow: visible;
+            letter-spacing: 0.1em;
         }
 
-        .hover-lift {
-            transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.8s ease;
-        }
-        
-        .hover-lift:hover {
-            transform: translateY(-12px);
-            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.9);
-        }
-
-        /* 捲動條優化 */
-        ::-webkit-scrollbar { width: 3px; }
-        ::-webkit-scrollbar-track { background: var(--bg-deep); }
-        ::-webkit-scrollbar-thumb {
-            background: linear-gradient(to bottom, transparent, var(--accent-gold), transparent);
-            border-radius: 10px;
+        .shimmer-effect::after {
+            content: "";
+            position: absolute;
+            top: 0; left: -100%; width: 50%; height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.2),
+                transparent
+            );
+            transform: skewX(-20deg);
+            animation: shimmer 8s infinite cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
         }
 
-        /* 內容淡入 */
+        @keyframes shimmer {
+            0% { left: -100%; opacity: 0; }
+            20% { opacity: 0.4; }
+            40% { left: 200%; opacity: 0; }
+            100% { left: 200%; opacity: 0; }
+        }
+
+        .outline-text-luxury {
+            -webkit-text-stroke: 1px var(--accent-gold);
+            color: transparent;
+            opacity: 0.55;
+            transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+            filter: drop-shadow(0 0 10px rgba(212, 175, 55, 0.1));
+            letter-spacing: 0.1em;
+            display: inline-block;
+            padding: 0.05em 0.15em;
+            margin: -0.05em -0.15em;
+            overflow: visible;
+        }
+
+        h1:hover .outline-text-luxury {
+            opacity: 1;
+            -webkit-text-stroke: 1.2px var(--light-gold);
+            filter: drop-shadow(0 0 35px rgba(212, 175, 55, 0.45));
+            transform: translateY(-4px);
+        }
+
         .animate-reveal {
-            animation: reveal 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation: reveal 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
         @keyframes reveal {
-            from { opacity: 0; transform: translateY(20px); filter: blur(10px); }
+            from { opacity: 0; transform: translateY(30px); filter: blur(20px); }
             to { opacity: 1; transform: translateY(0); filter: blur(0); }
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(to bottom, transparent, var(--accent-gold), transparent);
         }
     </style>
 <script type="importmap">

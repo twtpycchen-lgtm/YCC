@@ -21,27 +21,29 @@ export const getAlbumInsights = async (albumTitle: string, description: string) 
   }
 };
 
-export const cleanTrackTitles = async (rawTracks: {id: string, title: string}[], albumTitle: string, context: string = "") => {
+export const cleanTrackTitles = async (rawTracks: {id: string, title: string, remarks?: string}[], albumTitle: string, context: string = "") => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const inputData = rawTracks.map((t, index) => ({ index, originalTitle: t.title }));
+  
+  const inputData = rawTracks.map((t, index) => ({ 
+    index, 
+    originalTitle: t.title,
+    humanClue: t.remarks || "" 
+  }));
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: `任務：身為精通象徵主義、爵士靈魂與「聯覺（Synesthesia）」的文字煉金術士，請將這些原始音軌名稱轉化為具備「深夜詩學」與「抽象張力」的繁體中文藝術標題。
+      contents: `任務：身為精通象徵主義與爵士靈魂的文字煉金術士，請將這些音軌轉化為優美、富有畫面感的繁體中文詞句。
       
-      策展核心主題：${albumTitle}
+      策展專輯：${albumTitle}
       藝術脈絡：${context}
       
-      轉化規則（優先級排序）：
-      1. 【靈魂感應】：若原名是技術性的（如 v1_final, output_audio, 2024_mix）或無意義的亂碼，請徹底無視字面意思。請從專輯主題與脈絡中「通靈」出契合的音樂情緒與藝術意圖。
-      2. 【去技術化】：嚴格剔除任何數字編號、日期、版本號、採樣率或文件後綴。
-      3. 【詩意重構】：
-         - 運用「觸覺」與「視覺」的錯位：例如「粗糲的藍色呼吸」、「被雨水浸透的切分音」。
-         - 運用「空間感」：例如「不存在的地下室迴響」、「走廊盡頭的薩克斯風」。
-         - 運用「哲學意象」：例如「即興的虛無主義」、「在節拍邊緣墜落」。
-      4. 【風格導向】：標題應具備 Blue Note, ECM 或 Impulse! 唱片公司的文學高級感。語氣要破碎、孤獨、高雅且帶有電影感。
-      5. 【禁用符號】：標題中禁止包含任何括號（如 < >, [ ], ( )）、角括號、引號或多餘標點。直接輸出純文字標題。
+      【極重要指令】：
+      1. 長度與深度：不要提供簡短的名稱（如「午夜」），而是提供一段優美的「詞句」或「詩行」（約 8-15 字，例如：「在破碎的霓虹下尋找那段遺失的切分音」）。
+      2. 優先權：請觀察 "humanClue" 欄位（這是使用者手動輸入的關鍵字）。請【務必】以該文字為核心意象進行詩意化重構。
+      3. 去技術化：嚴格剔除任何數字編號、日期、版本號(v1, final)或副檔名。
+      4. 詩意風格：運用爵士樂的高級感（如：粗糲的呼吸、碎裂的霓虹、月光下的切分音、煙霧繚繞的迴響）。
+      5. 禁用符號：禁止包含任何括號、引號或標點。
       
       待處理數據：${JSON.stringify(inputData)}`,
       config: {
@@ -52,7 +54,7 @@ export const cleanTrackTitles = async (rawTracks: {id: string, title: string}[],
             type: Type.OBJECT,
             properties: {
               index: { type: Type.INTEGER },
-              optimizedTitle: { type: Type.STRING, description: "富有爵士詩意與聯覺感官的繁體中文標題，不含括號" }
+              optimizedTitle: { type: Type.STRING, description: "一段富含爵士詩意的繁體中文詞句" }
             },
             required: ["index", "optimizedTitle"]
           }
@@ -68,9 +70,9 @@ export const cleanTrackTitles = async (rawTracks: {id: string, title: string}[],
       }
     });
 
-    return finalTitles.map((t, i) => t || rawTracks[i].title);
+    return finalTitles.map((t, i) => t || rawTracks[i].remarks || rawTracks[i].title);
   } catch (error) {
     console.error("AI Title Optimization Failed:", error);
-    return rawTracks.map(t => t.title);
+    return rawTracks.map(t => t.remarks || t.title);
   }
 };
