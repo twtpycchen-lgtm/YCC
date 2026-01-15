@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { MOCK_ALBUMS } from './constants';
 import { Album, Track, PlayerState } from './types';
@@ -146,7 +147,6 @@ const App: React.FC = () => {
     }
   };
 
-  // --- 改良後的匯入邏輯 ---
   const handleImportValueChange = (val: string) => {
     setImportValue(val);
     try {
@@ -272,8 +272,13 @@ const App: React.FC = () => {
 
       {/* --- 改良後的 Export Modal --- */}
       {isExportOpen && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 md:p-20 bg-black/95 backdrop-blur-3xl animate-reveal overflow-y-auto">
-          <div className="glass w-full max-w-6xl rounded-[4rem] p-10 md:p-20 border border-white/10 shadow-2xl relative flex flex-col md:flex-row gap-12 my-auto">
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 md:p-12 bg-black/95 backdrop-blur-3xl animate-reveal overflow-y-auto" onClick={() => setIsExportOpen(false)}>
+          <div className="glass w-full max-w-6xl rounded-[4rem] p-10 md:p-20 border border-white/10 shadow-2xl relative flex flex-col md:flex-row gap-12 my-auto" onClick={(e) => e.stopPropagation()}>
+            {/* 右上角退出鍵 */}
+            <button onClick={() => setIsExportOpen(false)} className="absolute top-10 right-10 w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-gray-500 hover:text-white hover:border-[#d4af37]/40 transition-all z-20 group">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:rotate-90 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+
             <div className="md:w-1/3 space-y-10">
               <h2 className="text-4xl font-luxury text-white mb-4 tracking-widest">Master Archive<br/><span className="text-[#d4af37]">典藏導出</span></h2>
               <div className="space-y-6">
@@ -299,10 +304,10 @@ const App: React.FC = () => {
                 <button onClick={() => setIsExportOpen(false)} className="w-full py-5 text-gray-600 text-[10px] uppercase tracking-[0.5em] font-black hover:text-white transition-all">Close Window</button>
               </div>
             </div>
-            <div className="md:w-2/3 relative flex flex-col">
+            <div className="md:w-2/3 relative flex flex-col h-[500px] md:h-auto">
                <div className="flex-grow rounded-[2.5rem] bg-black/60 border border-white/5 p-8 overflow-hidden relative">
                   <div className="absolute top-0 left-0 right-0 h-10 bg-gradient-to-b from-black/80 to-transparent pointer-events-none z-10"></div>
-                  <pre className="text-[10px] font-mono text-gray-500 overflow-y-auto h-full scrollbar-custom selection:bg-[#d4af37] selection:text-black">
+                  <pre className="text-[10px] font-mono text-gray-500 overflow-y-auto h-full scrollbar-custom selection:bg-[#d4af37] selection:text-black p-4">
                     {JSON.stringify(albums, null, 2)}
                   </pre>
                   <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-black/80 to-transparent pointer-events-none z-10"></div>
@@ -314,12 +319,17 @@ const App: React.FC = () => {
 
       {/* --- 改良後的 Import Modal --- */}
       {isImportOpen && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 md:p-20 bg-black/95 backdrop-blur-3xl animate-reveal overflow-y-auto">
-          <div className="glass w-full max-w-6xl rounded-[4rem] p-10 md:p-20 border border-white/10 shadow-2xl relative my-auto flex flex-col md:flex-row gap-12">
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 md:p-12 bg-black/95 backdrop-blur-3xl animate-reveal overflow-y-auto" onClick={() => { setIsImportOpen(false); setImportPreview(null); setImportValue(''); }}>
+          <div className="glass w-full max-w-6xl rounded-[4rem] p-10 md:p-20 border border-white/10 shadow-2xl relative my-auto flex flex-col md:flex-row gap-12" onClick={(e) => e.stopPropagation()}>
+            {/* 右上角退出鍵 */}
+            <button onClick={() => { setIsImportOpen(false); setImportPreview(null); setImportValue(''); }} className="absolute top-10 right-10 w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-gray-500 hover:text-white hover:border-[#d4af37]/40 transition-all z-20 group">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:rotate-90 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+
             <div className="md:w-1/2 space-y-10">
               <h2 className="text-4xl font-luxury text-white mb-4 tracking-widest">Archive Sync<br/><span className="text-[#d4af37]">同步中心</span></h2>
               <div className="relative group">
-                <input type="file" accept=".json" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer z-20" />
+                <input type="file" accept=".json" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer z-20" title="拖放 JSON 檔案於此" />
                 <div className="border-2 border-dashed border-white/10 group-hover:border-[#d4af37]/40 rounded-[2.5rem] p-16 text-center transition-all bg-white/[0.01]">
                    <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 transition-transform group-hover:scale-110">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
@@ -336,31 +346,31 @@ const App: React.FC = () => {
                 />
               </div>
               <div className="flex gap-4">
-                <button onClick={handleImportData} disabled={!importPreview} className={`flex-grow py-5 text-[10px] uppercase tracking-[0.5em] font-black rounded-3xl transition-all ${importPreview ? 'bg-[#d4af37] text-black hover:scale-105' : 'bg-gray-900 text-gray-700 cursor-not-allowed'}`}>
+                <button onClick={handleImportData} disabled={!importPreview} className={`flex-grow py-5 text-[10px] uppercase tracking-[0.5em] font-black rounded-3xl transition-all ${importPreview ? 'bg-[#d4af37] text-black hover:scale-105 shadow-[0_15px_30px_rgba(212,175,55,0.2)]' : 'bg-gray-900 text-gray-700 cursor-not-allowed'}`}>
                   Authorize Synchronization
                 </button>
                 <button onClick={() => { setIsImportOpen(false); setImportPreview(null); setImportValue(''); }} className="px-10 py-5 text-gray-600 text-[10px] uppercase tracking-[0.5em] font-black hover:text-white transition-all">Cancel</button>
               </div>
             </div>
             
-            <div className="md:w-1/2 flex flex-col">
-              <div className="flex-grow rounded-[2.5rem] bg-black/60 border border-white/5 p-10 overflow-y-auto scrollbar-custom max-h-[600px]">
+            <div className="md:w-1/2 flex flex-col h-[400px] md:h-auto">
+              <div className="flex-grow rounded-[2.5rem] bg-black/60 border border-white/5 p-10 overflow-y-auto scrollbar-custom">
                 <h4 className="font-luxury text-[10px] text-gray-600 tracking-[0.4em] mb-8 border-b border-white/5 pb-4 uppercase">Import Preview</h4>
                 {importPreview ? (
                   <div className="space-y-6">
-                    {importPreview.map((alb, i) => (
-                      <div key={alb.id} className="flex gap-5 items-center p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                        <img src={alb.coverImage} className="w-16 h-16 rounded-xl object-cover" />
+                    {importPreview.map((alb) => (
+                      <div key={alb.id} className="flex gap-5 items-center p-4 rounded-2xl bg-white/[0.02] border border-white/5 group/alb">
+                        <img src={alb.coverImage} className="w-16 h-16 rounded-xl object-cover border border-white/10 group-hover/alb:border-[#d4af37]/40 transition-all" />
                         <div className="overflow-hidden">
                           <p className="text-white text-sm font-bold truncate">{alb.title}</p>
-                          <p className="text-[#d4af37] text-[10px] tracking-widest mt-1 uppercase font-bold">{alb.tracks.length} Sessions</p>
+                          <p className="text-[#d4af37] text-[10px] tracking-widest mt-1 uppercase font-bold">{alb.tracks.length} Sessions Record</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center text-center opacity-30 py-20">
-                    <div className="w-1 h-1 bg-gray-600 rounded-full mb-4"></div>
+                    <div className="w-1.5 h-1.5 bg-gray-600 rounded-full mb-4 animate-pulse"></div>
                     <p className="text-[9px] uppercase tracking-[0.5em] text-gray-600 font-black">Waiting for Data Payload</p>
                   </div>
                 )}
@@ -374,8 +384,8 @@ const App: React.FC = () => {
       )}
 
       {albumToDelete && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center p-10 bg-black/95 backdrop-blur-2xl animate-reveal">
-          <div className="glass w-full max-w-lg rounded-[4rem] p-16 border border-white/10 shadow-2xl text-center space-y-12">
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-10 bg-black/95 backdrop-blur-2xl animate-reveal" onClick={() => setAlbumToDelete(null)}>
+          <div className="glass w-full max-w-lg rounded-[4rem] p-16 border border-white/10 shadow-2xl text-center space-y-12" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-3xl font-luxury text-white mb-4 tracking-widest">Confirm Deletion</h2>
             <div className="flex flex-col gap-5 pt-4">
               <button onClick={handleDeleteAlbum} className="w-full py-6 bg-red-600 text-white text-[10px] uppercase tracking-[0.5em] font-black rounded-3xl hover:bg-red-500 transition-all">Permanently Purge</button>
