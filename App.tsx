@@ -17,10 +17,12 @@ const App: React.FC = () => {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [importValue, setImportValue] = useState('');
+  const [importPreview, setImportPreview] = useState<Album[] | null>(null);
   const [albumToEdit, setAlbumToEdit] = useState<Album | undefined>(undefined);
   const [albumToDelete, setAlbumToDelete] = useState<Album | null>(null);
   const [isCuratorMode, setIsCuratorMode] = useState(false); 
   const [hasAdminAccess, setHasAdminAccess] = useState(false);
+  const [showCopySuccess, setShowCopySuccess] = useState(false);
   
   const isProcessingHash = useRef(false);
 
@@ -31,7 +33,6 @@ const App: React.FC = () => {
     progress: 0,
   });
 
-  // 權限檢查：檢查 URL 是否包含 ?admin=true
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('admin') === 'true') {
@@ -50,11 +51,7 @@ const App: React.FC = () => {
       localDrafts = [];
     }
     
-    // 合併全域發布 (constants.ts) 與本地草稿 (localStorage)
-    // 只有管理員模式會看到本地草稿，普通用戶只看 MOCK_ALBUMS
     const combined = [...MOCK_ALBUMS];
-    
-    // 如果是管理員，將草稿加入列表（避免重複 id）
     if (hasAdminAccess || localDrafts.length > 0) {
       localDrafts.forEach(draft => {
         if (!combined.find(a => a.id === draft.id)) {
@@ -84,10 +81,8 @@ const App: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // 只有在 CuratorMode 開啟時才存檔到 LocalStorage
   useEffect(() => {
     if (isInitialized && isCuratorMode) {
-      // 只儲存非 MOCK_ALBUMS 的部分作為草稿
       const drafts = albums.filter(a => !MOCK_ALBUMS.find(ma => ma.id === a.id));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(drafts));
     }
@@ -132,22 +127,13 @@ const App: React.FC = () => {
 
   const handleTrackEnded = useCallback(() => {
     setPlayerState(prev => ({ ...prev, isPlaying: false, progress: 0 }));
-    
-    // 設定 3 秒的「靈魂呼吸」間隔
     setTimeout(() => {
       setPlayerState(prev => {
         if (!prev.currentAlbum || !prev.currentTrack) return { ...prev, isPlaying: false };
-        
         const tracks = prev.currentAlbum.tracks;
         const currentIndex = tracks.findIndex(t => t.id === prev.currentTrack?.id);
-        
         if (currentIndex !== -1 && currentIndex < tracks.length - 1) {
-          return {
-            ...prev,
-            currentTrack: tracks[currentIndex + 1],
-            isPlaying: true,
-            progress: 0
-          };
+          return { ...prev, currentTrack: tracks[currentIndex + 1], isPlaying: true, progress: 0 };
         }
         return { ...prev, isPlaying: false };
       });
@@ -156,24 +142,55 @@ const App: React.FC = () => {
 
   const handlePlayAll = (album: Album) => {
     if (album.tracks.length > 0) {
-      setPlayerState({
-        currentAlbum: album,
-        currentTrack: album.tracks[0],
-        isPlaying: true,
-        progress: 0
-      });
+      setPlayerState({ currentAlbum: album, currentTrack: album.tracks[0], isPlaying: true, progress: 0 });
     }
   };
 
-  const handleImportData = (rawJson?: string) => {
-    const jsonToParse = rawJson || importValue;
+  // --- 改良後的匯入邏輯 ---
+  const handleImportValueChange = (val: string) => {
+    setImportValue(val);
     try {
-      const parsed = JSON.parse(jsonToParse);
-      setAlbums(parsed);
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) {
+        setImportPreview(parsed);
+      } else {
+        setImportPreview(null);
+      }
+    } catch (e) {
+      setImportPreview(null);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = ev.target?.result as string;
+      handleImportValueChange(content);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportData = () => {
+    if (!importPreview) return alert("請提供有效的 JSON 存檔數據。");
+    if (confirm("匯入將完全覆蓋目前的本地草稿，確定要繼續嗎？")) {
+      setAlbums(importPreview);
       setIsImportOpen(false);
       setImportValue('');
-    } catch (e) { 
-      alert("Invalid data format."); 
+      setImportPreview(null);
+      alert("數據同步成功。");
+    }
+  };
+
+  const handleCopyToClipboard = async () => {
+    const json = JSON.stringify(albums, null, 2);
+    try {
+      await navigator.clipboard.writeText(json);
+      setShowCopySuccess(true);
+      setTimeout(() => setShowCopySuccess(false), 2000);
+    } catch (err) {
+      alert("複製失敗，請手動複製。");
     }
   };
 
@@ -186,6 +203,8 @@ const App: React.FC = () => {
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
   };
+
+  const totalTracks = albums.reduce((acc, curr) => acc + curr.tracks.length, 0);
 
   return (
     <div className={`min-h-screen flex flex-col relative selection:bg-[#d4af37] transition-all duration-1000 bg-[#050508]`}>
@@ -231,18 +250,9 @@ const App: React.FC = () => {
                   album={album} 
                   onClick={() => handleSelectAlbum(album)} 
                   isJazzMode={true} 
-                  onDelete={isCuratorMode ? (e) => {
-                    e.stopPropagation();
-                    setAlbumToDelete(album);
-                  } : undefined} 
+                  onDelete={isCuratorMode ? (e) => { e.stopPropagation(); setAlbumToDelete(album); } : undefined} 
                 />
               ))}
-              
-              {albums.length === 0 && (
-                <div className="col-span-full py-52 flex flex-col items-center justify-center text-center space-y-10 glass rounded-[5rem] border-dashed border-white/5">
-                  <p className="text-gray-700 uppercase tracking-[0.6em] text-[9px] font-black">Archive is currently empty</p>
-                </div>
-              )}
             </div>
           </div>
         ) : (
@@ -260,6 +270,109 @@ const App: React.FC = () => {
         )}
       </main>
 
+      {/* --- 改良後的 Export Modal --- */}
+      {isExportOpen && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 md:p-20 bg-black/95 backdrop-blur-3xl animate-reveal overflow-y-auto">
+          <div className="glass w-full max-w-6xl rounded-[4rem] p-10 md:p-20 border border-white/10 shadow-2xl relative flex flex-col md:flex-row gap-12 my-auto">
+            <div className="md:w-1/3 space-y-10">
+              <h2 className="text-4xl font-luxury text-white mb-4 tracking-widest">Master Archive<br/><span className="text-[#d4af37]">典藏導出</span></h2>
+              <div className="space-y-6">
+                <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5">
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-gray-600 font-black mb-2">Current Statistics</p>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex justify-between items-center"><span className="text-gray-400 text-sm">Albums</span><span className="text-white font-mono font-bold">{albums.length}</span></div>
+                    <div className="flex justify-between items-center"><span className="text-gray-400 text-sm">Total Tracks</span><span className="text-white font-mono font-bold">{totalTracks}</span></div>
+                    <div className="flex justify-between items-center"><span className="text-gray-400 text-sm">Export Date</span><span className="text-white font-mono font-bold text-xs">{new Date().toLocaleDateString()}</span></div>
+                  </div>
+                </div>
+                <div className="p-6 rounded-3xl border border-[#d4af37]/20 bg-[#d4af37]/5">
+                   <p className="text-[#d4af37] text-xs leading-relaxed italic">"複製下方的 JSON 並更新到檔案 <code className="bg-black/40 px-1.5 py-0.5 rounded">constants.ts</code> 即可完成全域發布。"</p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-4">
+                <button onClick={handleCopyToClipboard} className="w-full py-5 bg-[#d4af37] text-black text-[10px] uppercase tracking-[0.5em] font-black rounded-3xl hover:scale-105 transition-all relative">
+                  {showCopySuccess ? "Successfully Copied" : "Copy to Clipboard"}
+                </button>
+                <button onClick={handleDownloadArchive} className="w-full py-5 bg-white/5 border border-white/10 text-white text-[10px] uppercase tracking-[0.5em] font-black rounded-3xl hover:bg-white/10 transition-all">
+                  Download JSON File
+                </button>
+                <button onClick={() => setIsExportOpen(false)} className="w-full py-5 text-gray-600 text-[10px] uppercase tracking-[0.5em] font-black hover:text-white transition-all">Close Window</button>
+              </div>
+            </div>
+            <div className="md:w-2/3 relative flex flex-col">
+               <div className="flex-grow rounded-[2.5rem] bg-black/60 border border-white/5 p-8 overflow-hidden relative">
+                  <div className="absolute top-0 left-0 right-0 h-10 bg-gradient-to-b from-black/80 to-transparent pointer-events-none z-10"></div>
+                  <pre className="text-[10px] font-mono text-gray-500 overflow-y-auto h-full scrollbar-custom selection:bg-[#d4af37] selection:text-black">
+                    {JSON.stringify(albums, null, 2)}
+                  </pre>
+                  <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-black/80 to-transparent pointer-events-none z-10"></div>
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- 改良後的 Import Modal --- */}
+      {isImportOpen && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 md:p-20 bg-black/95 backdrop-blur-3xl animate-reveal overflow-y-auto">
+          <div className="glass w-full max-w-6xl rounded-[4rem] p-10 md:p-20 border border-white/10 shadow-2xl relative my-auto flex flex-col md:flex-row gap-12">
+            <div className="md:w-1/2 space-y-10">
+              <h2 className="text-4xl font-luxury text-white mb-4 tracking-widest">Archive Sync<br/><span className="text-[#d4af37]">同步中心</span></h2>
+              <div className="relative group">
+                <input type="file" accept=".json" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer z-20" />
+                <div className="border-2 border-dashed border-white/10 group-hover:border-[#d4af37]/40 rounded-[2.5rem] p-16 text-center transition-all bg-white/[0.01]">
+                   <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 transition-transform group-hover:scale-110">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                   </div>
+                   <p className="text-[10px] uppercase tracking-[0.4em] text-gray-500 font-black group-hover:text-white transition-colors">Drag or Click to Upload JSON</p>
+                </div>
+              </div>
+              <div className="relative">
+                <textarea 
+                  value={importValue} 
+                  onChange={(e) => handleImportValueChange(e.target.value)} 
+                  placeholder="Or paste the archive payload here..." 
+                  className="w-full bg-black/40 border border-white/10 rounded-[2rem] p-8 text-[10px] font-mono text-gray-400 h-48 focus:border-[#d4af37]/30 outline-none resize-none"
+                />
+              </div>
+              <div className="flex gap-4">
+                <button onClick={handleImportData} disabled={!importPreview} className={`flex-grow py-5 text-[10px] uppercase tracking-[0.5em] font-black rounded-3xl transition-all ${importPreview ? 'bg-[#d4af37] text-black hover:scale-105' : 'bg-gray-900 text-gray-700 cursor-not-allowed'}`}>
+                  Authorize Synchronization
+                </button>
+                <button onClick={() => { setIsImportOpen(false); setImportPreview(null); setImportValue(''); }} className="px-10 py-5 text-gray-600 text-[10px] uppercase tracking-[0.5em] font-black hover:text-white transition-all">Cancel</button>
+              </div>
+            </div>
+            
+            <div className="md:w-1/2 flex flex-col">
+              <div className="flex-grow rounded-[2.5rem] bg-black/60 border border-white/5 p-10 overflow-y-auto scrollbar-custom max-h-[600px]">
+                <h4 className="font-luxury text-[10px] text-gray-600 tracking-[0.4em] mb-8 border-b border-white/5 pb-4 uppercase">Import Preview</h4>
+                {importPreview ? (
+                  <div className="space-y-6">
+                    {importPreview.map((alb, i) => (
+                      <div key={alb.id} className="flex gap-5 items-center p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                        <img src={alb.coverImage} className="w-16 h-16 rounded-xl object-cover" />
+                        <div className="overflow-hidden">
+                          <p className="text-white text-sm font-bold truncate">{alb.title}</p>
+                          <p className="text-[#d4af37] text-[10px] tracking-widest mt-1 uppercase font-bold">{alb.tracks.length} Sessions</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-center opacity-30 py-20">
+                    <div className="w-1 h-1 bg-gray-600 rounded-full mb-4"></div>
+                    <p className="text-[9px] uppercase tracking-[0.5em] text-gray-600 font-black">Waiting for Data Payload</p>
+                  </div>
+                )}
+              </div>
+              <div className="mt-6 p-6 rounded-3xl bg-red-950/10 border border-red-900/20 text-center">
+                 <p className="text-red-500/80 text-[10px] font-black uppercase tracking-[0.3em]">Warning: Existing drafts will be purged upon sync.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {albumToDelete && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-10 bg-black/95 backdrop-blur-2xl animate-reveal">
           <div className="glass w-full max-w-lg rounded-[4rem] p-16 border border-white/10 shadow-2xl text-center space-y-12">
@@ -267,33 +380,6 @@ const App: React.FC = () => {
             <div className="flex flex-col gap-5 pt-4">
               <button onClick={handleDeleteAlbum} className="w-full py-6 bg-red-600 text-white text-[10px] uppercase tracking-[0.5em] font-black rounded-3xl hover:bg-red-500 transition-all">Permanently Purge</button>
               <button onClick={() => setAlbumToDelete(null)} className="w-full py-6 text-gray-500 text-[10px] uppercase tracking-[0.5em] font-black hover:text-white transition-all">Retain Archive</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isExportOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-10 bg-black/95 backdrop-blur-3xl animate-reveal">
-          <div className="glass w-full max-w-4xl rounded-[5rem] p-20 border-white/5 shadow-2xl space-y-12 text-center">
-            <h2 className="text-4xl font-luxury text-white mb-4 tracking-[0.3em]">Export for Global Launch</h2>
-            <p className="text-gray-500 text-sm">Copy this JSON and update <code className="text-[#d4af37]">constants.ts</code> to publish globally.</p>
-            <textarea readOnly value={JSON.stringify(albums, null, 2)} className="w-full bg-black/50 border border-white/5 rounded-[2.5rem] p-10 text-[10px] font-mono text-gray-500 h-96 focus:outline-none" />
-            <div className="flex gap-8">
-              <button onClick={handleDownloadArchive} className="flex-grow py-6 bg-white text-black text-[10px] uppercase tracking-[0.5em] font-black rounded-3xl hover:bg-[#d4af37] transition-all">Download Master Archive</button>
-              <button onClick={() => setIsExportOpen(false)} className="px-16 py-6 text-gray-500 text-[10px] uppercase tracking-[0.5em] font-black border border-white/5 rounded-3xl hover:text-white transition-all">Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isImportOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-10 bg-black/95 backdrop-blur-3xl animate-reveal">
-          <div className="glass w-full max-w-4xl rounded-[5rem] p-20 border-white/5 shadow-2xl space-y-12 text-center">
-            <h2 className="text-4xl font-luxury text-white mb-4 tracking-[0.3em]">Archive Sync</h2>
-            <textarea value={importValue} onChange={(e) => setImportValue(e.target.value)} placeholder='Inject the JSON payload...' className="w-full bg-black/50 border border-white/10 rounded-[2.5rem] p-10 text-[10px] font-mono text-gray-400 h-72 focus:outline-none" />
-            <div className="flex gap-8">
-              <button onClick={() => handleImportData()} className="flex-grow py-6 bg-[#d4af37] text-black text-[10px] uppercase tracking-[0.5em] font-black rounded-3xl">Synchronize Payload</button>
-              <button onClick={() => setIsImportOpen(false)} className="px-16 py-6 text-gray-500 text-[10px] uppercase tracking-[0.5em] font-black border border-white/5 rounded-3xl hover:text-white transition-all">Abort</button>
             </div>
           </div>
         </div>
