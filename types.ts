@@ -1,4 +1,3 @@
-
 export interface Track {
   id: string;
   title: string;         // 當前顯示的標題（可能是優化後的）
@@ -8,6 +7,7 @@ export interface Track {
   wavUrl: string;
   mp3Url: string;
   genre: string;
+  remarks?: string;      // 自行輸入的備註
 }
 
 export interface Album {

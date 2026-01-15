@@ -3,22 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>爵非鼓狂 | Jazz Fei Drum Madness</title>
+    <title>爵非鼓狂 | JAZZ FEI NOIR</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@200;300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@100;200;300;400;500;600&family=Noto+Serif+TC:wght@200;300;400;500;600&display=swap" rel="stylesheet">
     <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     <style>
         :root {
-            /* 高級感底色：深石板藍灰色，非純黑 */
-            --bg-color: #0d0d0f; 
+            --bg-deep: #08080a;
             --accent-gold: #d4af37;
+            --gold-glow: rgba(212, 175, 55, 0.15);
+            --noir-blue: #1a1b26;
         }
         
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
+            font-family: 'Inter', 'Noto Serif TC', sans-serif;
+            background-color: var(--bg-deep);
             color: #ffffff;
             margin: 0;
             overflow-x: hidden;
@@ -27,57 +28,92 @@
 
         h1, h2, h3, .font-luxury { 
             font-family: 'Cinzel', serif; 
-            letter-spacing: 0.15em;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
         }
 
-        /* 藝術膠片紋理 - 稍微增強以提升實體感 */
         .noise-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none;
             z-index: 9999;
-            opacity: 0.04;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.05;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 250 250' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
         }
 
-        /* 高級感流體背景：混合深藍、古銅與深灰 */
+        /* 高級感動態背景：模擬黑暗中流動的煙霧與金屬光澤 */
         .mesh-bg {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
             z-index: -1;
-            background: 
-                radial-gradient(circle at 10% 20%, rgba(30, 41, 59, 0.4) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, rgba(212, 175, 55, 0.03) 0%, transparent 40%),
-                radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 1) 0%, #0d0d0f 100%);
-            animation: mesh-move 30s ease-in-out infinite alternate;
+            background: var(--bg-deep);
+            overflow: hidden;
         }
 
-        @keyframes mesh-move {
-            0% { transform: scale(1) translate(0, 0); }
-            100% { transform: scale(1.05) translate(1%, 1%); }
+        .mesh-blob {
+            position: absolute;
+            width: 80vmax;
+            height: 80vmax;
+            filter: blur(80px);
+            opacity: 0.15;
+            border-radius: 50%;
+            animation: blob-float 40s infinite alternate ease-in-out;
+        }
+
+        .blob-1 { background: radial-gradient(circle, #1e293b 0%, transparent 70%); top: -20%; left: -20%; }
+        .blob-2 { background: radial-gradient(circle, #2e1065 0%, transparent 70%); bottom: -10%; right: -10%; animation-delay: -10s; }
+        .blob-3 { background: radial-gradient(circle, #422006 0%, transparent 70%); top: 40%; left: 30%; opacity: 0.08; animation-delay: -20s; }
+
+        @keyframes blob-float {
+            0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+            100% { transform: translate(5%, 10%) scale(1.1) rotate(15deg); }
         }
 
         .glass {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(30px) saturate(150%);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.01);
+            backdrop-filter: blur(40px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
         }
 
         .text-glow { 
-            text-shadow: 0 0 30px rgba(212, 175, 55, 0.2); 
+            text-shadow: 0 0 40px var(--gold-glow); 
+        }
+
+        .gold-border {
+            border: 1px solid rgba(212, 175, 55, 0.2);
         }
 
         .outline-text {
-            -webkit-text-stroke: 1px rgba(255,255,255,0.1);
+            -webkit-text-stroke: 1px rgba(255,255,255,0.08);
             color: transparent;
+            transition: all 1s ease;
         }
 
-        /* 自定義捲動條 */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
+        .hover-lift {
+            transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.8s ease;
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-12px);
+            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.9);
+        }
+
+        /* 捲動條優化 */
+        ::-webkit-scrollbar { width: 3px; }
+        ::-webkit-scrollbar-track { background: var(--bg-deep); }
         ::-webkit-scrollbar-thumb {
-            background: rgba(212, 175, 55, 0.1);
+            background: linear-gradient(to bottom, transparent, var(--accent-gold), transparent);
             border-radius: 10px;
+        }
+
+        /* 內容淡入 */
+        .animate-reveal {
+            animation: reveal 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes reveal {
+            from { opacity: 0; transform: translateY(20px); filter: blur(10px); }
+            to { opacity: 1; transform: translateY(0); filter: blur(0); }
         }
     </style>
 <script type="importmap">
@@ -95,7 +131,11 @@
 </head>
 <body>
     <div class="noise-overlay"></div>
-    <div class="mesh-bg"></div>
+    <div class="mesh-bg">
+        <div class="mesh-blob blob-1"></div>
+        <div class="mesh-blob blob-2"></div>
+        <div class="mesh-blob blob-3"></div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
 </body>
