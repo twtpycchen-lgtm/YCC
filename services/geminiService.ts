@@ -2,7 +2,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const getAlbumInsights = async (albumTitle: string, description: string) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // 直接從 process.env 讀取，並告知 TS 這是一個字串
+  const apiKey = (process.env as any).API_KEY;
+  const ai = new GoogleGenAI({ apiKey });
+  
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -22,7 +25,8 @@ export const getAlbumInsights = async (albumTitle: string, description: string) 
 };
 
 export const cleanTrackTitles = async (rawTracks: {id: string, title: string, remarks?: string}[], albumTitle: string, context: string = "") => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = (process.env as any).API_KEY;
+  const ai = new GoogleGenAI({ apiKey });
   
   const inputData = rawTracks.map((t, index) => ({ 
     index, 

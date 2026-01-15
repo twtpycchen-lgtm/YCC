@@ -2,13 +2,13 @@
 export interface Track {
   id: string;
   title: string;         // 當前顯示的標題（AI 生成的優美詩句）
-  originalTitle: string; // 原始檔名
-  duration: string;
   audioUrl: string;
-  wavUrl: string;
-  mp3Url: string;
-  genre: string;
-  remarks?: string;      // 自行輸入的備註/靈感
+  originalTitle?: string; // 原始檔名改為可選
+  duration?: string;      // 時長改為可選
+  wavUrl?: string;        // URL 改為可選
+  mp3Url?: string;        // URL 改為可選
+  genre?: string;        // 流派改為可選
+  remarks?: string;      // 自行輸入的備註
 }
 
 export interface Album {
@@ -26,5 +26,5 @@ export interface PlayerState {
   currentAlbum: Album | null;
   isPlaying: boolean;
   progress: number;
-  isAlbumMode: boolean; // 新增：是否為專輯連續播放模式
+  isAlbumMode: boolean;
 }

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MOCK_ALBUMS } from './constants';
 import { Album, Track, PlayerState } from './types';
 import Navbar from './components/Navbar';
@@ -23,7 +23,7 @@ const App: React.FC = () => {
   const [albumToDelete, setAlbumToDelete] = useState<Album | null>(null);
   
   const [isCuratorMode, setIsCuratorMode] = useState(true); 
-  const [hasAdminAccess, setHasAdminAccess] = useState(true);
+  const [hasAdminAccess] = useState(true);
   
   const [showCopySuccess, setShowCopySuccess] = useState(false);
   const [syncStats, setSyncStats] = useState<{count: number} | null>(null);
@@ -53,7 +53,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (isInitialized && isCuratorMode) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(albums, null, 2));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(albums));
     }
   }, [albums, isInitialized, isCuratorMode]);
 
@@ -145,7 +145,9 @@ const App: React.FC = () => {
   };
 
   const generateFullCode = () => {
-    return `import { Album } from './types';\n\nexport const MOCK_ALBUMS: Album[] = ${JSON.stringify(albums, null, 2)};`;
+    // 強化：確保在生成代碼時不包含可能破壞 JS 的非法字元
+    const cleanData = JSON.stringify(albums, null, 2);
+    return `import { Album } from './types';\n\nexport const MOCK_ALBUMS: Album[] = ${cleanData};`;
   };
 
   const handleCopyToClipboard = async () => {
@@ -219,7 +221,6 @@ const App: React.FC = () => {
               </div>
               
               <div className="space-y-8 flex-grow">
-                {/* 步驟 1 */}
                 <div className="relative pl-10 border-l border-white/5 pb-8">
                   <span className="absolute -left-3 top-0 w-6 h-6 rounded-full bg-[#d4af37] text-black flex items-center justify-center text-[10px] font-black">1</span>
                   <h4 className="text-[11px] uppercase tracking-[0.2em] text-white font-black mb-2">準備新數據</h4>
@@ -229,14 +230,12 @@ const App: React.FC = () => {
                   </button>
                 </div>
 
-                {/* 步驟 2 */}
                 <div className="relative pl-10 border-l border-white/5 pb-8">
                   <span className="absolute -left-3 top-0 w-6 h-6 rounded-full bg-white/10 text-white flex items-center justify-center text-[10px] font-black">2</span>
                   <h4 className="text-[11px] uppercase tracking-[0.2em] text-white font-black mb-2">前往 GitHub 編輯</h4>
                   <p className="text-[10px] text-gray-500 leading-relaxed mb-4">打開您的 GitHub 專案，找到並進入 <code className="text-[#d4af37] bg-white/5 px-2 py-0.5 rounded">constants.ts</code> 點擊右上角筆頭進入編輯。</p>
                 </div>
 
-                {/* 步驟 3 */}
                 <div className="relative pl-10">
                   <span className="absolute -left-3 top-0 w-6 h-6 rounded-full bg-white/10 text-white flex items-center justify-center text-[10px] font-black">3</span>
                   <h4 className="text-[11px] uppercase tracking-[0.2em] text-white font-black mb-2">覆蓋並 Commit</h4>

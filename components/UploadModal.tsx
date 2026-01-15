@@ -15,7 +15,10 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
   const [story, setStory] = useState('');
   const [coverImage, setCoverImage] = useState<string>('');
   const [coverImageUrl, setCoverImageUrl] = useState<string>('');
-  const [tracks, setTracks] = useState<Partial<Track>[]>([]);
+  
+  // 修正：使用確定的 Track 類型，避免 Partial 導致的編譯錯誤
+  const [tracks, setTracks] = useState<Track[]>([]);
+  
   const [batchLinks, setBatchLinks] = useState('');
   const [batchNames, setBatchNames] = useState('');
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
@@ -52,7 +55,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
 
   const handleBatchImport = () => {
     const lines = batchLinks.split('\n').filter(l => l.trim().length > 10);
-    const results = lines.map((line) => {
+    const results: Track[] = lines.map((line) => {
       let finalUrl = line.trim();
       const rawName = getRawFilename(finalUrl);
       if (finalUrl.includes('dropbox.com')) {
@@ -66,8 +69,8 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
         title: rawName,
         originalTitle: rawName,
         audioUrl: finalUrl,
-        wavUrl: "#", // 確保介面完整
-        mp3Url: "#", // 確保介面完整
+        wavUrl: "#",
+        mp3Url: "#",
         duration: '--:--',
         genre: 'Jazz',
         remarks: ''
@@ -92,7 +95,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
     if (!title) return alert("請先輸入專輯標題。");
     setIsCleaningTitles(true);
     try {
-      const trackData = tracks.map(t => ({ id: t.id!, title: t.originalTitle || t.title!, remarks: t.remarks || '' }));
+      const trackData = tracks.map(t => ({ id: t.id, title: t.originalTitle || t.title, remarks: t.remarks || '' }));
       const optimized = await cleanTrackTitles(trackData, title, description);
       setTracks(prev => prev.map((t, i) => ({ ...t, title: optimized[i] || t.title })));
     } catch (e) { alert("AI 生成失敗"); }
@@ -102,15 +105,8 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const finalCover = imageTab === 'url' ? coverImageUrl : coverImage;
-    if (!title || !finalCover || tracks.length === 0) return alert("請填寫完整資訊。");
+    if (!title || !finalCover || tracks.length === 0) return alert("請填寫完整資訊（標題、封面與歌曲）。");
     
-    // 強制補足遺漏欄位以符合 Track 介面
-    const validatedTracks = tracks.map(t => ({
-      ...t,
-      wavUrl: t.wavUrl || "#",
-      mp3Url: t.mp3Url || "#",
-    })) as Track[];
-
     onUpload({
       id: albumToEdit?.id || `album-${Date.now()}`,
       title,
@@ -118,14 +114,14 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
       story, 
       coverImage: finalCover,
       releaseDate: albumToEdit?.releaseDate || new Date().toLocaleDateString('zh-TW'),
-      tracks: validatedTracks
+      tracks: tracks
     });
   };
 
   return (
     <div className="fixed inset-0 z-[650] flex items-center justify-center p-4 md:p-10 bg-black/98 backdrop-blur-3xl overflow-y-auto animate-reveal" onClick={onClose}>
       <div className="glass w-full max-w-7xl my-auto rounded-[3rem] p-8 md:p-16 border border-white/10 relative" onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute top-10 right-10 p-4 text-gray-500 hover:text-white transition-all group">
+        <button type="button" onClick={onClose} className="absolute top-10 right-10 p-4 text-gray-500 hover:text-white transition-all group">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 group-hover:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
 
@@ -139,7 +135,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
                </div>
                <div className="aspect-square bg-white/5 border border-white/10 rounded-[3rem] overflow-hidden relative group shadow-2xl">
                   { (imageTab === 'url' ? coverImageUrl : coverImage) ? (
-                    <img src={imageTab === 'url' ? coverImageUrl : coverImage} className="w-full h-full object-cover" />
+                    <img src={imageTab === 'url' ? coverImageUrl : coverImage} className="w-full h-full object-cover" alt="Preview" />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center text-gray-700 text-[10px] uppercase tracking-[0.5em] font-black">Archive Artwork</div>
                   )}
@@ -202,7 +198,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
                           <span className="text-[9px] font-mono text-gray-800">{String(idx + 1).padStart(2, '0')}</span>
                           <input 
                             type="text" 
-                            value={track.title || ''} 
+                            value={track.title} 
                             onChange={(e) => setTracks(prev => prev.map(t => t.id === track.id ? { ...t, title: e.target.value } : t))} 
                             placeholder="Poetical Title / 詩意標題..." 
                             className="w-full bg-black/40 border border-[#d4af37]/20 rounded-xl p-3 text-xs text-white tracking-wider outline-none focus:border-[#d4af37]"
