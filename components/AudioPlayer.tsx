@@ -84,8 +84,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
       />
       
       <div className="flex flex-col md:flex-row items-center gap-5 md:gap-8">
-        <div className="flex items-center gap-4 min-w-[200px] md:min-w-[280px] max-w-[350px]">
-          <div className="relative w-12 h-12 md:w-14 md:h-14 rounded-xl overflow-hidden shadow-lg bg-black border border-white/5 flex-shrink-0">
+        <div className="flex items-center gap-4 min-w-[200px] md:min-w-[320px] max-w-[400px]">
+          <div className="relative w-12 h-12 md:w-16 md:h-16 rounded-xl overflow-hidden shadow-lg bg-black border border-white/5 flex-shrink-0">
             <img src={state.currentAlbum?.coverImage} className="w-full h-full object-cover" />
             {isBuffering && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
@@ -93,14 +93,22 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
               </div>
             )}
           </div>
-          <div className="overflow-hidden flex flex-col gap-0.5">
-            <h4 className="font-bold text-sm md:text-base truncate text-white tracking-wide">
+          <div className="overflow-hidden flex flex-col gap-1">
+            <h4 className="font-bold text-sm md:text-base truncate text-white tracking-wide leading-tight">
               {state.currentTrack.title}
             </h4>
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`text-[7px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full border ${state.isAlbumMode ? 'text-[#d4af37] border-[#d4af37]/40 bg-[#d4af37]/5' : 'text-gray-600 border-white/5 bg-white/5'}`}>
-                {state.isAlbumMode ? 'Album Mode / 專輯播放' : 'Single Play / 單曲播放'}
-              </span>
+            <div className="flex flex-col gap-0.5 overflow-hidden">
+              <div className="flex items-center gap-3">
+                <span className={`text-[7px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full border shrink-0 ${state.isAlbumMode ? 'text-[#d4af37] border-[#d4af37]/40 bg-[#d4af37]/5' : 'text-gray-600 border-white/5 bg-white/5'}`}>
+                  {state.isAlbumMode ? 'Album' : 'Single'}
+                </span>
+              </div>
+              {/* 放大「人工 Key-in 歌名」(remarks) */}
+              {state.currentTrack.remarks && (
+                <span className="text-[11px] md:text-xs text-gray-400 truncate italic font-medium tracking-wide">
+                   {state.currentTrack.remarks}
+                </span>
+              )}
             </div>
           </div>
         </div>

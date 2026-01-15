@@ -6,19 +6,18 @@ export const getAlbumInsights = async (albumTitle: string, description: string) 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `你是一位深諳爵士樂靈魂的當代詩人與樂評大師。請為這場名為「${albumTitle}」的音樂饗宴撰寫一段極具電影感、黑色電影（Noir）氛圍且富有即興張力的繁體中文策展引言（約 150 字）。
+      contents: `你是一位精通爵士魂的當代詩人。請為專輯「${albumTitle}」撰寫一段極具電影張力的繁體中文策展引言。
       
-      背景主題：${description}。
+      背景：${description}。
       
-      寫作要求：
-      1. 語氣要優雅而冷靜，彷彿在煙霧繚繞的深夜俱對部低語。
-      2. 運用爵士樂相關的意象（如：切分音的呼吸、微醺的銅管、破碎的節奏、午夜的薩克斯風）。
-      3. 探討靈魂與律動的深層連結。
-      4. 直接輸出正文，不需引號或標題。`,
+      要求：
+      1. 語氣優雅冷靜。
+      2. 運用爵士樂意象。
+      3. 約 150 字，直接輸出正文。`,
     });
-    return response.text || "當音符撕開深夜的寂靜，律動便成為唯一的信仰。";
+    return response.text || "音符在深夜的裂縫中生長。";
   } catch (error) {
-    return "在即興的裂縫中，我們找到了靈魂最真實的震顫。";
+    return "在即興的節奏中，我們觸碰到了靈魂的邊界。";
   }
 };
 
@@ -35,19 +34,18 @@ export const cleanTrackTitles = async (rawTracks: {id: string, title: string, re
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `【任務：爵士魂之詩】
-      你是一位精通文字美學與爵士靈魂的文學大師。
-      請為專輯《${albumTitle}》中的每一首曲目，創作一段獨立且優美的「感官敘事詩句」作為歌名。
+      請為專輯《${albumTitle}》中的曲目，創作一段優美的「感官敘事詩句」作為標題。
       
       【藝術脈絡】：${context}
       
       【核心指令】：
-      1. 不要只給歌名，要給出「一句優美的話」，這句話描述了音樂在午夜發生的瞬間。
-      2. 每一句長度控制在 10-22 個繁體中文。
-      3. 必須包含爵士樂的高級意象（例如：切分音、微醺的銅管、破碎的霓虹、月色下的低音提琴）。
-      4. 如果有提供 "humanClue" (使用者備註)，請將其轉化為詩句的核心意象。
-      5. 絕對不要出現數字、日期、版本號、副檔名或括號。
+      1. 嚴格限制：每一首曲目「只能輸出一句」完整的話。
+      2. 絕對禁止分段、分行或使用任何換行符號。
+      3. 長度 12-22 個繁體中文。
+      4. 必須包含爵士意象（如：微醺、破碎霓虹、午夜琴弦）。
+      5. 嚴禁數字、版本號或檔案後綴。
       
-      【待處理數據集】：${JSON.stringify(inputData)}`,
+      【數據】：${JSON.stringify(inputData)}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -56,7 +54,7 @@ export const cleanTrackTitles = async (rawTracks: {id: string, title: string, re
             type: Type.OBJECT,
             properties: {
               index: { type: Type.INTEGER },
-              optimizedTitle: { type: Type.STRING, description: "一段充滿爵士詩意的優美敘事短句" }
+              optimizedTitle: { type: Type.STRING, description: "一句完整且優美的繁體中文短句" }
             },
             required: ["index", "optimizedTitle"]
           }
@@ -64,19 +62,15 @@ export const cleanTrackTitles = async (rawTracks: {id: string, title: string, re
       }
     });
 
-    const text = response.text || "[]";
-    const results: {index: number, optimizedTitle: string}[] = JSON.parse(text);
+    const results: {index: number, optimizedTitle: string}[] = JSON.parse(response.text || "[]");
     const finalTitles = new Array(rawTracks.length).fill(null);
-    
     results.forEach(res => {
       if (res.index >= 0 && res.index < finalTitles.length) {
         finalTitles[res.index] = res.optimizedTitle;
       }
     });
-
-    return finalTitles.map((t, i) => t || rawTracks[i].remarks || rawTracks[i].title);
+    return finalTitles.map((t, i) => t || rawTracks[i].title);
   } catch (error) {
-    console.error("AI Title Optimization Failed:", error);
-    return rawTracks.map(t => t.remarks || t.title);
+    return rawTracks.map(t => t.title);
   }
 };
