@@ -28,11 +28,12 @@ const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   const [useOptimizedTitles, setUseOptimizedTitles] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const tracks = album.tracks || [];
   const INITIAL_VISIBLE_COUNT = 8;
-  const hasManyTracks = album.tracks.length > INITIAL_VISIBLE_COUNT;
+  const hasManyTracks = tracks.length > INITIAL_VISIBLE_COUNT;
   const visibleTracks = (hasManyTracks && !isExpanded) 
-    ? album.tracks.slice(0, INITIAL_VISIBLE_COUNT) 
-    : album.tracks;
+    ? tracks.slice(0, INITIAL_VISIBLE_COUNT) 
+    : tracks;
 
   const handleShare = async () => {
     const shareUrl = `${window.location.origin}${window.location.pathname}#album-${album.id}`;
@@ -97,7 +98,6 @@ const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 md:gap-20 items-start">
-        {/* Visual & Story Side */}
         <div className="lg:col-span-4 space-y-12 lg:sticky lg:top-32">
           <div className="relative rounded-[2.5rem] overflow-hidden shadow-[0_30px_70px_rgba(0,0,0,0.8)] border border-white/10 bg-black group aspect-square">
             <img src={album.coverImage} className="w-full h-full object-cover transition-transform duration-[6s] group-hover:scale-110" />
@@ -113,7 +113,6 @@ const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
           </div>
         </div>
 
-        {/* Track List Side */}
         <div className="lg:col-span-8">
           <div className="mb-14">
             <h2 className="text-[clamp(2.5rem,6vw,4rem)] font-luxury mb-6 tracking-tight text-white leading-[1.1]">{album.title}</h2>
@@ -125,7 +124,6 @@ const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
             <p className="text-base md:text-lg text-gray-500 font-light leading-relaxed tracking-wider max-w-2xl border-l-2 border-[#d4af37]/20 pl-8">{album.description}</p>
           </div>
 
-          {/* LARGE PLAY ALL BUTTON */}
           <div className="mb-14">
              <button 
               onClick={onPlayAll}
@@ -147,7 +145,7 @@ const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
           <div className="space-y-6">
             <div className="flex justify-between items-end border-b border-white/5 pb-3 mb-6">
               <h4 className="font-luxury uppercase tracking-[0.5em] text-[10px] text-gray-700">Musical Program</h4>
-              <span className="text-[9px] font-mono text-gray-800 uppercase tracking-[0.3em] font-black">{album.tracks.length} Sessions Record</span>
+              <span className="text-[9px] font-mono text-gray-800 uppercase tracking-[0.3em] font-black">{tracks.length} Sessions Record</span>
             </div>
 
             <div className="space-y-2.5">
@@ -191,7 +189,7 @@ const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
                   className="group flex flex-col items-center gap-3 py-3 px-10 rounded-full border border-white/10 hover:border-[#d4af37]/40 transition-all duration-700"
                 >
                   <span className="text-[9px] uppercase tracking-[0.5em] font-black text-gray-700 group-hover:text-[#d4af37]">
-                    {isExpanded ? 'Collapse Program' : `Reveal All ${album.tracks.length} Sessions`}
+                    {isExpanded ? 'Collapse Program' : `Reveal All ${tracks.length} Sessions`}
                   </span>
                   <div className={`transition-transform duration-700 ${isExpanded ? 'rotate-180' : ''}`}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-800 group-hover:text-[#d4af37]" fill="none" viewBox="0 0 24 24" stroke="currentColor">

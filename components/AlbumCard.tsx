@@ -15,7 +15,6 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onDelete, isJazzM
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!cardRef.current) return;
     const rect = cardRef.current.getBoundingClientRect();
-    // Normalize mouse position from -0.5 to 0.5
     const x = (e.clientX - rect.left) / rect.width - 0.5;
     const y = (e.clientY - rect.top) / rect.height - 0.5;
     setMousePos({ x, y });
@@ -25,7 +24,6 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onDelete, isJazzM
     setMousePos({ x: 0, y: 0 });
   };
 
-  // Parallax and tilt calculations
   const imgTransform = `scale(1.15) translate3d(${mousePos.x * -25}px, ${mousePos.y * -25}px, 0) rotate(${mousePos.x * 2}deg)`;
   const contentTransform = `translate3d(${mousePos.x * 15}px, ${mousePos.y * 15}px, 0)`;
   const glintTransform = `translate3d(${mousePos.x * 100}%, ${mousePos.y * 100}%, 0)`;
@@ -50,7 +48,6 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onDelete, isJazzM
           transformStyle: 'preserve-3d'
         }}
       >
-        {/* Parallax Image Layer */}
         <div className="absolute inset-0 overflow-hidden">
           <img 
             src={album.coverImage} 
@@ -62,18 +59,15 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onDelete, isJazzM
           />
         </div>
 
-        {/* Dynamic Gold/Indigo Glint */}
         <div 
           className={`absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-30 transition-opacity duration-700 bg-gradient-to-br from-transparent via-white/20 to-transparent blur-3xl`}
           style={{ transform: glintTransform }}
         ></div>
         
-        {/* Sophisticated Gradient Mask */}
         <div className={`absolute inset-0 bg-gradient-to-t via-black/10 transition-opacity duration-1000 ${
           isJazzMode ? 'from-indigo-950/90' : 'from-[#08080a] via-transparent to-transparent'
         } group-hover:opacity-60`}></div>
         
-        {/* Action Button: Refined Delete */}
         {onDelete && (
           <button 
             onClick={(e) => {
@@ -88,7 +82,6 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onDelete, isJazzM
           </button>
         )}
 
-        {/* Floating Content Layer */}
         <div 
           className="absolute bottom-12 left-12 right-12 z-20 transition-transform duration-700 ease-out"
           style={{ transform: contentTransform }}
@@ -104,7 +97,6 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onDelete, isJazzM
            </h3>
         </div>
 
-        {/* Deluxe Vinyl Groove Effect */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover:opacity-15 transition-all duration-1000 scale-150 group-hover:scale-110">
           {[...Array(5)].map((_, i) => (
             <div 
@@ -120,7 +112,6 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onDelete, isJazzM
         </div>
       </div>
       
-      {/* External Metadata Bar */}
       <div className="mt-12 px-8 flex justify-between items-center transition-opacity duration-700">
         <div className="flex flex-col gap-1">
           <span className="text-[10px] uppercase tracking-[0.5em] text-gray-700 font-black group-hover:text-gray-500 transition-colors">{album.releaseDate}</span>
@@ -128,7 +119,7 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onDelete, isJazzM
         </div>
         <div className="flex items-center gap-4 px-4 py-2 rounded-full border border-white/5 bg-white/[0.02] group-hover:border-[#d4af37]/20 transition-all">
            <span className={`w-1 h-1 rounded-full ${isJazzMode ? 'bg-indigo-500' : 'bg-[#d4af37]'}`}></span>
-           <span className="text-[10px] uppercase tracking-[0.5em] text-gray-500 font-bold">{album.tracks.length} Sessions</span>
+           <span className="text-[10px] uppercase tracking-[0.5em] text-gray-500 font-bold">{(album.tracks?.length || 0)} Sessions</span>
         </div>
       </div>
     </div>

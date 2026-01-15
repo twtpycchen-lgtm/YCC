@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { PlayerState } from '../types';
 
@@ -59,7 +60,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
 
   return (
     <div className="fixed bottom-6 left-6 right-6 z-[110] glass rounded-[1.8rem] p-4 md:p-5 border-white/[0.05] shadow-[0_30px_60px_rgba(0,0,0,0.8)] animate-reveal group/player">
-      {/* Remove Button */}
       <button 
         onClick={onRemove}
         className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-black border border-white/10 text-gray-500 hover:text-white hover:border-[#d4af37]/40 flex items-center justify-center transition-all opacity-0 group-hover/player:opacity-100 shadow-xl"
@@ -84,7 +84,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
       />
       
       <div className="flex flex-col md:flex-row items-center gap-5 md:gap-8">
-        {/* Track Info */}
         <div className="flex items-center gap-4 min-w-[200px] md:min-w-[280px] max-w-[350px]">
           <div className="relative w-12 h-12 md:w-14 md:h-14 rounded-xl overflow-hidden shadow-lg bg-black border border-white/5 flex-shrink-0">
             <img src={state.currentAlbum?.coverImage} className="w-full h-full object-cover" />
@@ -98,18 +97,14 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
             <h4 className="font-bold text-sm md:text-base truncate text-white tracking-wide">
               {state.currentTrack.title}
             </h4>
-            {state.currentTrack.remarks && (
-              <p className="text-sm md:text-base font-luxury text-[#d4af37] tracking-[0.1em] truncate italic">
-                {state.currentTrack.remarks}
-              </p>
-            )}
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-[7px] font-black uppercase tracking-[0.2em] text-gray-700">Studio Session</span>
+              <span className={`text-[7px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full border ${state.isAlbumMode ? 'text-[#d4af37] border-[#d4af37]/40 bg-[#d4af37]/5' : 'text-gray-600 border-white/5 bg-white/5'}`}>
+                {state.isAlbumMode ? 'Album Mode / 專輯播放' : 'Single Play / 單曲播放'}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Controls */}
         <div className="flex-grow flex flex-col items-center gap-2.5 w-full">
           <div className="flex items-center gap-8">
             <button className="text-gray-700 hover:text-white transition-all" onClick={() => { if(audioRef.current) audioRef.current.currentTime -= 10 }}>
@@ -133,7 +128,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
           <div className="w-full flex items-center gap-4">
             <span className="text-[8px] text-gray-700 font-mono w-8 text-right font-bold">{formatTime(audioRef.current?.currentTime || 0)}</span>
             <div 
-              className="flex-grow h-0.5 bg-white/5 rounded-full relative cursor-pointer group"
+              className="flex-grow h-0.5 bg-white/5 rounded-full relative cursor-pointer"
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const pos = (e.clientX - rect.left) / rect.width;
@@ -149,9 +144,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ state, onTogglePlay, onProgre
           </div>
         </div>
 
-        {/* Volume */}
         <div className="hidden lg:flex items-center gap-3 min-w-[140px] justify-end">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-700" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217z" clipRule="evenodd" /></svg>
           <input 
             type="range" min="0" max="1" step="0.01" value={volume} 
             onChange={(e) => {

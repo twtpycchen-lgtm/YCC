@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const getAlbumInsights = async (albumTitle: string, description: string) => {
@@ -32,20 +33,21 @@ export const cleanTrackTitles = async (rawTracks: {id: string, title: string, re
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: `任務：身為精通象徵主義與爵士靈魂的文字煉金術士，請將這些音軌轉化為優美、富有畫面感的繁體中文詞句。
+      model: 'gemini-3-flash-preview',
+      contents: `【任務：爵士魂之詩】
+      你是一位精通文字美學與爵士靈魂的文學大師。
+      請為專輯《${albumTitle}》中的每一首曲目，創作一段獨立且優美的「感官敘事詩句」作為歌名。
       
-      策展專輯：${albumTitle}
-      藝術脈絡：${context}
+      【藝術脈絡】：${context}
       
-      【極重要指令】：
-      1. 長度與深度：不要提供簡短的名稱（如「午夜」），而是提供一段優美的「詞句」或「詩行」（約 8-15 字，例如：「在破碎的霓虹下尋找那段遺失的切分音」）。
-      2. 優先權：請觀察 "humanClue" 欄位（這是使用者手動輸入的關鍵字）。請【務必】以該文字為核心意象進行詩意化重構。
-      3. 去技術化：嚴格剔除任何數字編號、日期、版本號(v1, final)或副檔名。
-      4. 詩意風格：運用爵士樂的高級感（如：粗糲的呼吸、碎裂的霓虹、月光下的切分音、煙霧繚繞的迴響）。
-      5. 禁用符號：禁止包含任何括號、引號或標點。
+      【核心指令】：
+      1. 不要只給歌名，要給出「一句優美的話」，這句話描述了音樂在午夜發生的瞬間。
+      2. 每一句長度控制在 10-22 個繁體中文。
+      3. 必須包含爵士樂的高級意象（例如：切分音、微醺的銅管、破碎的霓虹、月色下的低音提琴）。
+      4. 如果有提供 "humanClue" (使用者備註)，請將其轉化為詩句的核心意象。
+      5. 絕對不要出現數字、日期、版本號、副檔名或括號。
       
-      待處理數據：${JSON.stringify(inputData)}`,
+      【待處理數據集】：${JSON.stringify(inputData)}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -54,7 +56,7 @@ export const cleanTrackTitles = async (rawTracks: {id: string, title: string, re
             type: Type.OBJECT,
             properties: {
               index: { type: Type.INTEGER },
-              optimizedTitle: { type: Type.STRING, description: "一段富含爵士詩意的繁體中文詞句" }
+              optimizedTitle: { type: Type.STRING, description: "一段充滿爵士詩意的優美敘事短句" }
             },
             required: ["index", "optimizedTitle"]
           }
@@ -62,8 +64,10 @@ export const cleanTrackTitles = async (rawTracks: {id: string, title: string, re
       }
     });
 
-    const results: {index: number, optimizedTitle: string}[] = JSON.parse(response.text || "[]");
+    const text = response.text || "[]";
+    const results: {index: number, optimizedTitle: string}[] = JSON.parse(text);
     const finalTitles = new Array(rawTracks.length).fill(null);
+    
     results.forEach(res => {
       if (res.index >= 0 && res.index < finalTitles.length) {
         finalTitles[res.index] = res.optimizedTitle;

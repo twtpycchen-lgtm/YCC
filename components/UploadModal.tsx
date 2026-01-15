@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Album, Track } from '../types';
 import { getAlbumInsights, cleanTrackTitles } from '../services/geminiService';
@@ -13,20 +14,27 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
   const [description, setDescription] = useState('');
   const [story, setStory] = useState('');
   const [coverImage, setCoverImage] = useState<string>('');
+  const [coverImageUrl, setCoverImageUrl] = useState<string>('');
   const [tracks, setTracks] = useState<Partial<Track>[]>([]);
   const [batchLinks, setBatchLinks] = useState('');
   const [batchNames, setBatchNames] = useState('');
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
   const [isCleaningTitles, setIsCleaningTitles] = useState(false);
-  const [viewMode, setViewMode] = useState<'raw' | 'optimized'>('optimized');
   const [batchTab, setBatchTab] = useState<'links' | 'names'>('links');
+  const [imageTab, setImageTab] = useState<'upload' | 'url'>('url');
 
   useEffect(() => {
     if (albumToEdit) {
       setTitle(albumToEdit.title);
       setDescription(albumToEdit.description);
       setStory(albumToEdit.story || '');
-      setCoverImage(albumToEdit.coverImage);
+      if (albumToEdit.coverImage?.startsWith('http')) {
+        setCoverImageUrl(albumToEdit.coverImage);
+        setImageTab('url');
+      } else {
+        setCoverImage(albumToEdit.coverImage);
+        setImageTab('upload');
+      }
       setTracks(albumToEdit.tracks);
     }
   }, [albumToEdit]);
@@ -35,29 +43,23 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
     try {
       const url = new URL(urlStr);
       let filename = url.pathname.split('/').pop() || "";
-      if (!filename) filename = url.searchParams.get('title') || "未命名音軌";
-      const decoded = decodeURIComponent(filename);
-      return decoded.replace(/\.[^/.]+$/, "").trim();
+      if (!filename) filename = url.searchParams.get('title') || "Track";
+      return decodeURIComponent(filename).replace(/\.[^/.]+$/, "").trim();
     } catch (e) {
-      const base = urlStr.split('/').pop()?.split('?')[0] || "音軌";
-      try { return decodeURIComponent(base).replace(/\.[^/.]+$/, ""); } catch { return base; }
+      return "Session Track";
     }
   };
 
   const handleBatchImport = () => {
     const lines = batchLinks.split('\n').filter(l => l.trim().length > 10);
-    const results = lines.map((line, idx) => {
+    const results = lines.map((line) => {
       let finalUrl = line.trim();
-      let genre = '雲端串流';
+      let genre = 'Streaming';
       const rawName = getRawFilename(finalUrl);
 
       if (finalUrl.includes('dropbox.com')) {
-        genre = 'Dropbox 💎';
-        finalUrl = finalUrl.replace(/www\.dropbox\.com/g, 'dl.dropboxusercontent.com');
-        const urlObj = new URL(finalUrl);
-        urlObj.searchParams.set('raw', '1');
-        urlObj.searchParams.delete('dl');
-        finalUrl = urlObj.toString();
+        genre = 'Dropbox';
+        finalUrl = finalUrl.replace(/www\.dropbox\.com/g, 'dl.dropboxusercontent.com').replace(/\?dl=0/g, '?raw=1');
       } else if (finalUrl.includes('drive.google.com')) {
         const idMatch = finalUrl.match(/[-\w]{25,50}/);
         if (idMatch) {
@@ -67,14 +69,12 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
       }
 
       return {
-        id: `track-${Date.now()}-${idx}`,
+        id: `track-${Math.random().toString(36).substr(2, 9)}`,
         title: rawName,
         originalTitle: rawName,
         audioUrl: finalUrl,
         duration: '--:--',
         genre: genre,
-        mp3Url: line.trim(),
-        wavUrl: line.trim(),
         remarks: ''
       };
     });
@@ -84,157 +84,137 @@ const UploadModal: React.FC<UploadModalProps> = ({ onClose, onUpload, albumToEdi
   };
 
   const handleBatchNamesImport = () => {
-    if (tracks.length === 0) return alert("請先匯入音軌連結");
     const nameLines = batchNames.split('\n').map(n => n.trim()).filter(n => n.length > 0);
     if (nameLines.length === 0) return;
-
-    setTracks(prev => prev.map((track, idx) => {
-      if (nameLines[idx]) {
-        return { ...track, remarks: nameLines[idx] };
-      }
-      return track;
-    }));
+    setTracks(prev => prev.map((track, idx) => ({ ...track, remarks: nameLines[idx] || track.remarks })));
     setBatchNames('');
-    alert(`已分配 ${nameLines.length} 個曲名`);
   };
 
   const handleCleanTitles = async () => {
     if (tracks.length === 0) return;
+    if (!title) return alert("請先輸入專輯標題，AI 需要標題作為創作靈感。");
+    
     setIsCleaningTitles(true);
     try {
-      // 關鍵：將目前的 remarks 傳給 AI 作為優化依據
       const trackData = tracks.map(t => ({ 
-        id: t.id || '', 
-        title: t.originalTitle || t.title || '',
+        id: t.id!, 
+        title: t.originalTitle || t.title!, 
         remarks: t.remarks || '' 
       }));
       const optimized = await cleanTrackTitles(trackData, title, description);
       setTracks(prev => prev.map((t, i) => ({ ...t, title: optimized[i] || t.title })));
-      setViewMode('optimized');
-    } catch (e) { alert("AI 暫時失敗"); }
-    finally { setIsCleaningTitles(false); }
-  };
-
-  const updateTrackRemarks = (id: string, remarks: string) => {
-    setTracks(prev => prev.map(t => t.id === id ? { ...t, remarks } : t));
+    } catch (e) { 
+      alert("AI 生成失敗，請檢查 API Key 或網路狀態。"); 
+    } finally { 
+      setIsCleaningTitles(false); 
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !coverImage || tracks.length === 0) return alert("資訊不完整");
-    const finalTracks = tracks.map(t => ({ ...t, title: viewMode === 'raw' ? t.originalTitle : (t.title || t.originalTitle) })) as Track[];
+    const finalCover = imageTab === 'url' ? coverImageUrl : coverImage;
+    if (!title || !finalCover || tracks.length === 0) return alert("請填寫標題、封面並至少匯入一個音軌。");
+    
     onUpload({
-      id: albumToEdit ? albumToEdit.id : `album-${Date.now()}`,
+      id: albumToEdit?.id || `album-${Date.now()}`,
       title,
       description,
       story, 
-      coverImage,
-      releaseDate: albumToEdit ? albumToEdit.releaseDate : new Date().toLocaleDateString('zh-TW'),
-      tracks: finalTracks
+      coverImage: finalCover,
+      releaseDate: albumToEdit?.releaseDate || new Date().toLocaleDateString('zh-TW'),
+      tracks: tracks as Track[]
     });
   };
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 md:p-10 bg-black/95 backdrop-blur-3xl overflow-y-auto animate-fade-in">
-      <div className="glass w-full max-w-7xl my-auto rounded-[3rem] p-8 md:p-12 border border-white/10 shadow-2xl relative">
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl md:text-3xl font-luxury text-white uppercase tracking-widest">{albumToEdit ? '典藏更新' : '策展策劃'}</h2>
-          <button onClick={onClose} className="p-2 text-gray-500 hover:text-white transition-all">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-        </div>
+    <div className="fixed inset-0 z-[650] flex items-center justify-center p-4 md:p-10 bg-black/98 backdrop-blur-3xl overflow-y-auto animate-reveal" onClick={onClose}>
+      <div className="glass w-full max-w-7xl my-auto rounded-[3rem] p-8 md:p-16 border border-white/10 relative" onClick={(e) => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-10 right-10 p-4 text-gray-500 hover:text-white transition-all group">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 group-hover:rotate-90 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-16">
-          <div className="space-y-6">
-            <div className="aspect-square bg-white/5 border border-white/10 rounded-[2rem] overflow-hidden relative group">
-              {coverImage ? <img src={coverImage} className="w-full h-full object-cover" /> : <div className="absolute inset-0 flex items-center justify-center text-gray-700 uppercase tracking-widest text-xs">藝術封面</div>}
-              <input type="file" accept="image/*" onChange={(e) => {
-                if(e.target.files?.[0]) {
-                  const reader = new FileReader();
-                  reader.onload = (ev) => setCoverImage(ev.target?.result as string);
-                  reader.readAsDataURL(e.target.files[0]);
-                }
-              }} className="absolute inset-0 opacity-0 cursor-pointer" />
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+          <div className="space-y-10">
+            <h2 className="text-3xl font-luxury text-white tracking-widest uppercase">{albumToEdit ? 'Edit Archive' : 'New Session'}</h2>
+            
+            <div className="space-y-6">
+               <div className="flex gap-4 border-b border-white/5 pb-2">
+                 <button type="button" onClick={() => setImageTab('url')} className={`text-[9px] uppercase tracking-widest font-black transition-all ${imageTab === 'url' ? 'text-[#d4af37]' : 'text-gray-600'}`}>Image URL</button>
+                 <button type="button" onClick={() => setImageTab('upload')} className={`text-[9px] uppercase tracking-widest font-black transition-all ${imageTab === 'upload' ? 'text-[#d4af37]' : 'text-gray-600'}`}>Local Upload</button>
+               </div>
+               
+               <div className="aspect-square bg-white/5 border border-white/10 rounded-[3rem] overflow-hidden relative group shadow-2xl">
+                  { (imageTab === 'url' ? coverImageUrl : coverImage) ? (
+                    <img src={imageTab === 'url' ? coverImageUrl : coverImage} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-gray-700 text-[10px] uppercase tracking-[0.5em] font-black">Archive Artwork</div>
+                  )}
+                  {imageTab === 'upload' && (
+                    <input type="file" accept="image/*" onChange={(e) => {
+                      if(e.target.files?.[0]) {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => setCoverImage(ev.target?.result as string);
+                        reader.readAsDataURL(e.target.files[0]);
+                      }
+                    }} className="absolute inset-0 opacity-0 cursor-pointer" />
+                  )}
+               </div>
+               {imageTab === 'url' && (
+                 <input type="text" value={coverImageUrl} onChange={(e) => setCoverImageUrl(e.target.value)} placeholder="貼上封面圖片網址 (推薦，可保持 JSON 體積輕巧)" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs text-gray-400 outline-none focus:border-[#d4af37]/40" />
+               )}
             </div>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="專輯標題" className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white font-luxury text-xl" />
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="背景描述" className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white h-24 text-sm" />
-            <div className="relative">
-              <textarea value={story} onChange={(e) => setStory(e.target.value)} placeholder="AI 編寫靈魂故事..." className="w-full bg-[#d4af37]/5 border border-[#d4af37]/20 rounded-xl p-4 text-[#d4af37] text-sm italic h-36" />
-              <button type="button" onClick={async () => { setIsGeneratingStory(true); setStory(await getAlbumInsights(title, description)); setIsGeneratingStory(false); }} disabled={isGeneratingStory} className="absolute bottom-4 right-4 px-4 py-2 bg-[#d4af37] text-black text-[9px] uppercase font-black rounded-full shadow-lg">
-                {isGeneratingStory ? '編寫中' : '✨ 生成故事'}
-              </button>
+
+            <div className="space-y-6">
+              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Album Title / 專輯標題" className="w-full bg-white/5 border border-white/10 rounded-2xl p-6 text-white font-luxury text-2xl outline-none focus:border-[#d4af37]/40" />
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Context / 藝術脈絡背景..." className="w-full bg-white/5 border border-white/10 rounded-2xl p-6 text-white h-32 text-sm outline-none focus:border-[#d4af37]/40 resize-none" />
+              <div className="relative">
+                <textarea value={story} onChange={(e) => setStory(e.target.value)} placeholder="AI Narrating Soul..." className="w-full bg-[#d4af37]/5 border border-[#d4af37]/20 rounded-2xl p-6 text-[#d4af37] text-sm italic h-44 outline-none resize-none font-serif" />
+                <button type="button" onClick={async () => { setIsGeneratingStory(true); setStory(await getAlbumInsights(title, description)); setIsGeneratingStory(false); }} disabled={isGeneratingStory} className="absolute bottom-6 right-6 px-6 py-3 bg-[#d4af37] text-black text-[10px] uppercase font-black rounded-full shadow-2xl hover:scale-105 transition-all">
+                  {isGeneratingStory ? 'Writing...' : '✨ Create Narrative'}
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-8 flex flex-col h-full">
-            <div className="glass p-6 rounded-[2rem] border border-white/5 flex-grow overflow-hidden flex flex-col">
-              <div className="flex gap-4 mb-4 border-b border-white/5 pb-2">
-                <button 
-                  type="button" 
-                  onClick={() => setBatchTab('links')} 
-                  className={`text-[10px] uppercase tracking-widest font-black transition-all ${batchTab === 'links' ? 'text-[#d4af37]' : 'text-gray-600'}`}
-                >
-                  匯入連結
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => setBatchTab('names')} 
-                  className={`text-[10px] uppercase tracking-widest font-black transition-all ${batchTab === 'names' ? 'text-[#d4af37]' : 'text-gray-600'}`}
-                >
-                  匯入歌名
-                </button>
-              </div>
+          <div className="space-y-10 flex flex-col h-full">
+            <div className="glass p-8 rounded-[3rem] border border-white/10 flex-grow flex flex-col min-h-0 bg-black/40 shadow-inner">
+               <div className="flex gap-6 mb-6 border-b border-white/5 pb-2 shrink-0">
+                  <button type="button" onClick={() => setBatchTab('links')} className={`text-[10px] uppercase tracking-widest font-black ${batchTab === 'links' ? 'text-[#d4af37]' : 'text-gray-700'}`}>Session Links</button>
+                  <button type="button" onClick={() => setBatchTab('names')} className={`text-[10px] uppercase tracking-widest font-black ${batchTab === 'names' ? 'text-[#d4af37]' : 'text-gray-700'}`}>Track Names</button>
+               </div>
 
-              {batchTab === 'links' ? (
-                <>
-                  <textarea 
-                    value={batchLinks} 
-                    onChange={(e) => setBatchLinks(e.target.value)} 
-                    placeholder="每行一個音軌連結 (Dropbox/Drive)..." 
-                    className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-[10px] font-mono text-gray-500 h-28 mb-4 shrink-0 focus:border-[#d4af37]/40 outline-none" 
-                  />
-                  <button type="button" onClick={handleBatchImport} className="w-full py-4 bg-white text-black rounded-xl text-xs uppercase font-black shrink-0 mb-6 hover:bg-[#d4af37] transition-all">導入音軌連結</button>
-                </>
-              ) : (
-                <>
-                  <textarea 
-                    value={batchNames} 
-                    onChange={(e) => setBatchNames(e.target.value)} 
-                    placeholder="每行一個歌曲名稱，將按順序分配給音軌..." 
-                    className="w-full bg-black/40 border border-[#d4af37]/10 rounded-xl p-4 text-[10px] font-mono text-[#d4af37]/60 h-28 mb-4 shrink-0 focus:border-[#d4af37]/40 outline-none" 
-                  />
-                  <button type="button" onClick={handleBatchNamesImport} className="w-full py-4 bg-[#d4af37] text-black rounded-xl text-xs uppercase font-black shrink-0 mb-6 hover:bg-[#d4af37]/80 transition-all">依序分配歌名</button>
-                </>
-              )}
-              
-              <div className="flex-grow overflow-y-auto space-y-3 pr-2 scrollbar-custom">
-                <div className="flex items-center justify-between mb-2">
-                   <span className="text-[8px] uppercase tracking-[0.3em] text-gray-600 font-black">當前音軌清單 ({tracks.length})</span>
-                   <button type="button" onClick={handleCleanTitles} disabled={isCleaningTitles} className="text-[8px] uppercase tracking-[0.2em] text-[#d4af37] hover:underline">
-                     {isCleaningTitles ? '優化中...' : '✨ AI 標題優化'}
-                   </button>
-                </div>
-                {tracks.map((track, idx) => (
-                  <div key={track.id} className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-3 transition-all hover:border-white/10">
-                    <div className="flex items-center gap-3">
-                      <span className="text-[10px] text-gray-700 font-mono w-4">{idx + 1}</span>
-                      <div className="flex-grow min-w-0">
-                        <p className="text-xs text-white truncate font-bold uppercase tracking-wider">{viewMode === 'raw' ? track.originalTitle : (track.title || track.originalTitle)}</p>
-                      </div>
-                      <button type="button" onClick={() => setTracks(prev => prev.filter(t => t.id !== track.id))} className="text-gray-700 hover:text-red-500 text-lg transition-colors">×</button>
-                    </div>
-                    <input 
-                      type="text" 
-                      value={track.remarks || ''} 
-                      onChange={(e) => updateTrackRemarks(track.id!, e.target.value)} 
-                      placeholder="人工歌名 (Remarks)"
-                      className="w-full bg-black/30 border border-white/5 rounded-lg p-2.5 text-xs text-[#d4af37] font-luxury tracking-widest uppercase focus:border-[#d4af37]/30 outline-none"
-                    />
+               {batchTab === 'links' ? (
+                 <div className="shrink-0 space-y-4 mb-8">
+                   <textarea value={batchLinks} onChange={(e) => setBatchLinks(e.target.value)} placeholder="每行貼上一個音樂連結..." className="w-full bg-black/40 border border-white/10 rounded-2xl p-6 text-[10px] font-mono text-gray-500 h-32 outline-none focus:border-[#d4af37]/40" />
+                   <button type="button" onClick={handleBatchImport} className="w-full py-5 bg-white text-black rounded-2xl text-[10px] uppercase font-black hover:bg-[#d4af37] transition-all">Batch Import Links</button>
+                 </div>
+               ) : (
+                 <div className="shrink-0 space-y-4 mb-8">
+                   <textarea value={batchNames} onChange={(e) => setBatchNames(e.target.value)} placeholder="每行輸入一個歌曲名稱..." className="w-full bg-[#d4af37]/5 border border-[#d4af37]/20 rounded-2xl p-6 text-[10px] text-[#d4af37] h-32 outline-none" />
+                   <button type="button" onClick={handleBatchNamesImport} className="w-full py-5 bg-[#d4af37] text-black rounded-2xl text-[10px] uppercase font-black transition-all">Map Custom Names</button>
+                 </div>
+               )}
+
+               <div className="flex-grow overflow-y-auto pr-4 scrollbar-custom space-y-4">
+                  <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-2">
+                    <span className="text-[9px] uppercase tracking-[0.4em] text-gray-700 font-black">Program Sequence ({tracks.length})</span>
+                    <button type="button" onClick={handleCleanTitles} disabled={isCleaningTitles} className="text-[9px] uppercase tracking-[0.2em] text-[#d4af37] hover:underline font-black">{isCleaningTitles ? 'WRITING POETRY...' : '✨ 生成詩意敘事'}</button>
                   </div>
-                ))}
-              </div>
+                  {tracks.map((track, idx) => (
+                    <div key={track.id} className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3 relative group/item">
+                       <button type="button" onClick={() => setTracks(prev => prev.filter(t => t.id !== track.id))} className="absolute top-4 right-4 text-gray-800 hover:text-red-500 transition-colors">×</button>
+                       <div className="flex flex-col gap-1">
+                          <span className="text-[9px] font-mono text-gray-800">{String(idx + 1).padStart(2, '0')}</span>
+                          {/* 這裡修正是關鍵：優先顯示 title，這是 AI 生成的成果 */}
+                          <p className="text-xs text-white uppercase tracking-wider font-bold truncate pr-6">{track.title || "Waiting for naming..."}</p>
+                          <p className="text-[8px] text-[#d4af37]/50 uppercase tracking-widest truncate">Meta: {track.remarks || track.originalTitle}</p>
+                       </div>
+                       <input type="text" value={track.remarks || ''} onChange={(e) => setTracks(prev => prev.map(t => t.id === track.id ? { ...t, remarks: e.target.value } : t))} placeholder="Input Clues / 提供靈感備註" className="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-[10px] text-[#d4af37] tracking-widest outline-none focus:border-[#d4af37]/30" />
+                    </div>
+                  ))}
+               </div>
             </div>
-            <button type="submit" className="w-full py-6 bg-[#d4af37] text-black font-luxury uppercase tracking-[0.4em] rounded-[2rem] font-bold text-base shadow-2xl hover:scale-[1.02] transition-all active:scale-95">正式發佈典藏</button>
+            <button type="submit" className="w-full py-8 bg-[#d4af37] text-black font-luxury uppercase tracking-[0.5em] rounded-[3rem] font-bold text-xl shadow-[0_30px_60px_rgba(212,175,55,0.2)] hover:scale-[1.02] active:scale-95 transition-all">Confirm Archive Release</button>
           </div>
         </form>
       </div>
