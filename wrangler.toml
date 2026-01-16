@@ -1,0 +1,4 @@
+name = "chenfei168"  # 必須跟你 Worker 名稱一樣
+compatibility_date = "2026-01-16"
+main = "src/index.js"  # 如果有 Worker 腳本；靜態網站可忽略或用空腳本
+assets = { directory = "./dist" }  # 關鍵！告訴 wrangler 靜態資產在 dist
