@@ -1,8 +1,8 @@
 name = "chenfei168"
 compatibility_date = "2026-01-16"
-
-# main = "src/index.js"  # 註解或刪除這行（純靜態網站不需要 Worker 入口腳本）
+main = "src/index.js"  # 現在必須指向上面的腳本！
 
 [assets]
 directory = "./dist"
-not_found_handling = "single-page-application"
+binding = "ASSETS"  # 關鍵！綁定 ASSETS，讓腳本能 fetch 靜態檔
+not_found_handling = "single-page-application"  # SPA 路由 fallback
