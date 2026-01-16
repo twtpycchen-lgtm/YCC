@@ -1,7 +1,7 @@
 name = "chenfei168"
 compatibility_date = "2026-01-16"
 
-# main = "src/index.js"  # 如果沒有自訂 Worker 腳本，註解或刪除這行
+# main = "src/index.js"  # 註解或刪除這行（純靜態網站不需要 Worker 入口腳本）
 
 [assets]
 directory = "./dist"
