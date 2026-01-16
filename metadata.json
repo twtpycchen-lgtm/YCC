@@ -1,7 +1,5 @@
 {
-  "name": "Suno Curated Visualizer",
-  "description": "A luxury, high-end platform for showcasing AI-generated music albums with immersive visual storytelling and advanced audio playback.",
-  "requestFramePermissions": [
-    "microphone"
-  ]
+  "name": "爵非鼓狂 | JAZZ FEI NOIR",
+  "description": "極致奢華的 AI 爵士樂專輯策展平台，專為追求沉浸式聽覺體驗的愛好者設計。",
+  "requestFramePermissions": []
 }
