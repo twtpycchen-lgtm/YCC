@@ -1,0 +1,12 @@
+name = "chenfei168"                  # 必須跟你 Worker 名稱完全一樣
+compatibility_date = "2026-01-16"    # 保持最新
+main = "src/index.js"                # 如果沒有 Worker 腳本，可用任意空 JS 檔或忽略（靜態模式可選）
+
+[assets]
+directory = "./dist"                 # 關鍵！指向你的 build 輸出資料夾
+
+[site]
+bucket = "./dist"                    # 舊版相容，可選
+
+# 適合 React SPA：所有 404 路由都回 index.html（避免頁面刷新 404）
+not_found_handling = "single-page-application"
